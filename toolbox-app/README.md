@@ -1,4 +1,4 @@
-# ToolBox -  Safety Document Management
+# ToolBox - AI-Powered Safety Document Management
 
 A full-stack web application for construction site safety management, inspired by PreventX. It features AI-powered document generation, digital signatures via QR code, AI photo inspection, and a comprehensive project management dashboard.
 
@@ -147,4 +147,6 @@ For production, integrate:
 4. **File Storage:** Use Azure Blob Storage or AWS S3 for photos/documents
 5. **PDF Export:** Add PDF generation for signed document downloads
 
+## License
 
+Proprietary - Internal use only.
