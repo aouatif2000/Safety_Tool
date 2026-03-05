@@ -23,7 +23,7 @@ export default function Dashboard() {
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 32 }}>
         <div>
           <h1 style={{ fontSize: 28, fontWeight: 700, letterSpacing: "-0.03em", marginBottom: 4 }}>
-            {greeting}, Aouatif
+            {greeting}, Abdelali
           </h1>
           <p style={{ color: "var(--text-secondary)", fontSize: 14 }}>{dateStr}</p>
         </div>

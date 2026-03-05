@@ -75,9 +75,9 @@ const store = {
   users: [
     {
       id: uuidv4(),
-      name: "Aouatif",
+      name: "Abdelali",
       initials: "AT",
-      email: "aouatif@apex.com",
+      email: "abdelali@apex.com",
       role: "AI Developer",
       company: "apex"
     }
