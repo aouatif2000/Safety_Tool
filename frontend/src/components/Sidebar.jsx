@@ -101,7 +101,7 @@ export default function Sidebar() {
           <div className="user-avatar" style={{ width: 34, height: 34, fontSize: 11 }}>AT</div>
           <div className="sidebar-user-info">
             <div className="sidebar-user-name">Abdelali</div>
-            <div className="sidebar-user-role">AI Developer</div>
+            <div className="sidebar-user-role">User</div>
           </div>
           <LogOut size={15} style={{ marginLeft: "auto", opacity: expanded ? 0.5 : 0, color: "var(--text-muted)" }} />
         </div>

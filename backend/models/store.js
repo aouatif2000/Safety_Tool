@@ -78,7 +78,7 @@ const store = {
       name: "Abdelali",
       initials: "AT",
       email: "abdelali@apex.com",
-      role: "AI Developer",
+      role: "User",
       company: "apex"
     }
   ],
