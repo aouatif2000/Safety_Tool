@@ -64,7 +64,7 @@ export default function Sidebar() {
           <Shield size={22} color="white" strokeWidth={2.5} />
         </div>
         <div className="sidebar-logo-text">
-          <div className="sidebar-logo-name">SafetyTool</div>
+          <div className="sidebar-logo-name">Safety Tool</div>
           <div className="sidebar-logo-sub">Smart Safety Management</div>
         </div>
       </div>
