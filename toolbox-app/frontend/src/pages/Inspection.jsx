@@ -188,7 +188,7 @@ export default function Inspection() {
             padding: 14, background: "var(--warning-light)", borderRadius: "var(--radius-sm)",
             fontSize: 13, color: "var(--text)", marginBottom: 20
           }}>
-            <strong>⚠️ Disclaimer:</strong> {report.disclaimer}
+            <strong>  Disclaimer:</strong> {report.disclaimer}
           </div>
 
           <button className="btn btn-outline" onClick={reset}>

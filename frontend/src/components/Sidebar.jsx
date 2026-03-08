@@ -1,44 +1,22 @@
 import React, { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
-  LayoutDashboard, FolderOpen, ClipboardList, Send,
-  Calendar, Truck, HardHat, Camera, Building2, FileText,
-  CheckSquare, Award, Library, Moon, Settings, LogOut, Shield
+  LayoutDashboard, Wrench, AlertCircle, TrendingUp,
+  FileText, Lock, Moon, Settings, LogOut, Shield, Plus
 } from "lucide-react";
 import "../styles/sidebar.css";
 
 const navGroups = [
   {
-    label: "Main",
+    label: "Services",
     items: [
       { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, path: "/" },
-      { id: "projects", label: "Projects", icon: FolderOpen, path: "/projects" },
-      { id: "tasks", label: "Tasks", icon: ClipboardList, path: "/tasks" },
-      { id: "requests", label: "Requests", icon: Send, path: "/requests" },
-    ]
-  },
-  {
-    label: "Site Operations",
-    items: [
-      { id: "planning", label: "Planning", icon: Calendar, path: "/planning" },
-      { id: "traffic", label: "Traffic Planning", icon: Truck, path: "/traffic" },
-      { id: "site-ops", label: "Site Operations", icon: HardHat, path: "/site-operations" },
-      { id: "inspection", label: "AI Photo Inspection", icon: Camera, path: "/inspection" },
-      { id: "subcontractors", label: "Subcontractors", icon: Building2, path: "/subcontractors" },
-      { id: "toolbox", label: "Toolbox", icon: FileText, path: "/toolbox" },
-    ]
-  },
-  {
-    label: "Quality",
-    items: [
-      { id: "quality", label: "Quality Control", icon: CheckSquare, path: "/quality" },
-    ]
-  },
-  {
-    label: "Compliance",
-    items: [
-      { id: "certificates", label: "Certificates", icon: Award, path: "/certificates" },
-      { id: "library", label: "Global Library", icon: Library, path: "/library" },
+      { id: "toolbox", label: "  Toolbox Service", icon: Wrench, path: "/toolbox" },
+      { id: "create-project", label: "New Project", icon: Plus, path: "/toolbox/create" },
+      { id: "incidents", label: "  Incident Reporting", icon: AlertCircle, path: "/incidents" },
+      { id: "risk", label: "  Risk Assessment", icon: TrendingUp, path: "/risk-assessment" },
+      { id: "permits", label: "  Permit System", icon: FileText, path: "/permits" },
+      { id: "access", label: "  Access Control", icon: Lock, path: "/access-control" },
     ]
   }
 ];

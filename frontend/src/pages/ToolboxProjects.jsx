@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { FolderOpen, ChevronRight, MapPin } from "lucide-react";
+import { FolderOpen, ChevronRight, MapPin, Plus } from "lucide-react";
 import * as api from "../services/api";
 
 export default function ToolboxProjects() {
@@ -24,6 +24,17 @@ export default function ToolboxProjects() {
         <p style={{ color: "var(--text-secondary)", fontSize: 15 }}>Choose a project to view or start toolbox sessions</p>
       </div>
       <div style={{ maxWidth: 720, margin: "0 auto" }}>
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: 28 }}>
+          <button
+            className="btn btn-primary"
+            onClick={() => navigate("/toolbox/create")}
+            style={{ display: "flex", alignItems: "center", gap: 8 }}
+          >
+            <Plus size={18} />
+            Create New Project
+          </button>
+        </div>
+        
         {projects.map(project => (
           <div
             key={project.id}

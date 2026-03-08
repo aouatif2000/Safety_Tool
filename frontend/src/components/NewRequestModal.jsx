@@ -21,8 +21,23 @@ export default function NewRequestModal({ isOpen, onClose, onCreated }) {
 
   useEffect(() => {
     if (isOpen) {
-      api.getProjects().then(setProjects).catch(console.error);
-      api.getDocumentTypes().then(setDocTypes).catch(console.error);
+      // Load projects
+      api.getProjects().then(data => {
+        setProjects(Array.isArray(data) ? data : []);
+      }).catch(err => {
+        console.error("Failed to load projects:", err);
+        setProjects([]);
+      });
+
+      // Load document types
+      api.getDocumentTypes().then(data => {
+        const types = data.documentTypes || data || [];
+        setDocTypes(Array.isArray(types) ? types : []);
+      }).catch(err => {
+        console.error("Failed to load document types:", err);
+        setDocTypes([]);
+      });
+
       setStep(1);
       setSelectedProject(null);
       setSelectedDocType(null);
@@ -38,10 +53,33 @@ export default function NewRequestModal({ isOpen, onClose, onCreated }) {
   const handleSubmit = async () => {
     setLoading(true);
     try {
-      const session = await api.createSession({ projectId: selectedProject.id, documentType: selectedDocType.name, context });
-      onCreated(session);
-      onClose();
-    } catch (err) { alert("Failed to generate document: " + err.message); }
+      const payload = {
+        documentType: selectedDocType.name,
+        context: {
+          title: `${selectedDocType.name} - ${selectedProject.name}`,
+          location: context.location,
+          tasks: context.tasks,
+          parties: context.parties,
+          additionalContext: context.additionalContext
+        },
+        createdBy: "Abdelali",
+        tags: [selectedProject.name]
+      };
+      
+      const response = await api.generateDocument(payload);
+      if (response.success && response.document) {
+        const document = {
+          ...response.document,
+          projectId: selectedProject.id
+        };
+        onCreated(document);
+        onClose();
+      } else {
+        throw new Error("Document generation failed");
+      }
+    } catch (err) { 
+      alert("Failed to generate document: " + err.message); 
+    }
     setLoading(false);
   };
 

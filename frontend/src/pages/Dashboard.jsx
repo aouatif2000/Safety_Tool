@@ -2,8 +2,8 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Sparkles, FileText, FolderPlus, Layout,
-  ArrowUpRight, Calendar, CheckCircle, AlertCircle, Shield, Camera,
-  TrendingUp, Clock
+  ArrowUpRight, AlertCircle, CheckCircle, Shield, Wrench,
+  TrendingUp, Clock, Calendar
 } from "lucide-react";
 import * as api from "../services/api";
 
@@ -39,12 +39,13 @@ export default function Dashboard() {
       </div>
 
       {/* Stat Cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 28 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 16, marginBottom: 28 }}>
         {[
-          { label: "Projects", value: data?.stats?.projects || 0, icon: FolderPlus, color: "#0e4a6e", bg: "#e8f4fc" },
-          { label: "Documents", value: data?.stats?.documents || 0, icon: FileText, color: "#7c3aed", bg: "#ede9fe" },
-          { label: "Active Sessions", value: data?.stats?.active || 0, icon: Clock, color: "#ea580c", bg: "#fff7ed" },
-          { label: "Inspections", value: data?.stats?.inspections || 0, icon: Camera, color: "#0891b2", bg: "#ecfeff" },
+          { label: "Toolbox", value: data?.stats?.toolbox?.total || 0, icon: Wrench, color: "#7c3aed", bg: "#ede9fe" },
+          { label: "Incidents", value: data?.stats?.incidents?.total || 0, icon: AlertCircle, color: "#ea580c", bg: "#fff7ed" },
+          { label: "Risk Assessments", value: data?.stats?.riskAssessments?.total || 0, icon: TrendingUp, color: "#059669", bg: "#d1fae5" },
+          { label: "Permits", value: data?.stats?.permits?.total || 0, icon: FileText, color: "#0e4a6e", bg: "#e8f4fc" },
+          { label: "Access Control", value: data?.stats?.accessControl?.total || 0, icon: Shield, color: "#0891b2", bg: "#ecfeff" },
         ].map(s => (
           <div key={s.label} className="card" style={{ display: "flex", alignItems: "center", gap: 16, padding: "20px 22px" }}>
             <div style={{ width: 48, height: 48, borderRadius: 12, background: s.bg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
@@ -63,12 +64,13 @@ export default function Dashboard() {
         <h3 style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.2, color: "var(--text-muted)", marginBottom: 14 }}>
           Quick Actions
         </h3>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 12 }}>
           {[
-            { label: "AI Document", icon: Sparkles, color: "#7c3aed", bg: "#ede9fe", path: "/toolbox" },
-            { label: "Toolbox Sessions", icon: FileText, color: "#0e4a6e", bg: "#e8f4fc", path: "/toolbox" },
-            { label: "New Project", icon: FolderPlus, color: "#059669", bg: "#d1fae5", path: "/projects" },
-            { label: "AI Inspection", icon: Camera, color: "#0891b2", bg: "#ecfeff", path: "/inspection" },
+            { label: "  Toolbox", icon: Wrench, color: "#7c3aed", bg: "#ede9fe", path: "/toolbox" },
+            { label: "  Incidents", icon: AlertCircle, color: "#ea580c", bg: "#fff7ed", path: "/incidents" },
+            { label: "  Risk Assessment", icon: TrendingUp, color: "#059669", bg: "#d1fae5", path: "/risk-assessment" },
+            { label: "  Permits", icon: FileText, color: "#0e4a6e", bg: "#e8f4fc", path: "/permits" },
+            { label: "  Access Control", icon: Shield, color: "#0891b2", bg: "#ecfeff", path: "/access-control" },
           ].map(action => (
             <div
               key={action.label}

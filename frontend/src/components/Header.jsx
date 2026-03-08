@@ -4,9 +4,12 @@ import { Plus, Globe, Bell } from "lucide-react";
 
 const breadcrumbMap = {
   "/": "Dashboard",
-  "/toolbox": "Toolbox",
-  "/inspection": "Inspection",
-  "/projects": "Projects",
+  "/toolbox": "  Toolbox Service",
+  "/toolbox/create": "Create Project",
+  "/incidents": "  Incident Reporting",
+  "/risk-assessment": "  Risk Assessment",
+  "/permits": "  Permit System",
+  "/access-control": "  Access Control",
 };
 
 export default function Header({ onNewRequest }) {

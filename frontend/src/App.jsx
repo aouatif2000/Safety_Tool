@@ -5,6 +5,7 @@ import Header from "./components/Header";
 import NewRequestModal from "./components/NewRequestModal";
 import Dashboard from "./pages/Dashboard";
 import ToolboxProjects from "./pages/ToolboxProjects";
+import CreateProject from "./pages/CreateProject";
 import ToolboxSessions from "./pages/ToolboxSessions";
 import SessionDetail from "./pages/SessionDetail";
 import Inspection from "./pages/Inspection";
@@ -27,19 +28,13 @@ function AppShell() {
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/toolbox" element={<ToolboxProjects />} />
+          <Route path="/toolbox/create" element={<CreateProject />} />
           <Route path="/toolbox/:projectId" element={<ToolboxSessions />} />
           <Route path="/toolbox/:projectId/session/:sessionId" element={<SessionDetail />} />
-          <Route path="/inspection" element={<Inspection />} />
-          <Route path="/projects" element={<PlaceholderPage />} />
-          <Route path="/tasks" element={<PlaceholderPage />} />
-          <Route path="/requests" element={<PlaceholderPage />} />
-          <Route path="/planning" element={<PlaceholderPage />} />
-          <Route path="/traffic" element={<PlaceholderPage />} />
-          <Route path="/site-operations" element={<PlaceholderPage />} />
-          <Route path="/subcontractors" element={<PlaceholderPage />} />
-          <Route path="/quality" element={<PlaceholderPage />} />
-          <Route path="/certificates" element={<PlaceholderPage />} />
-          <Route path="/library" element={<PlaceholderPage />} />
+          <Route path="/incidents" element={<Inspection />} />
+          <Route path="/risk-assessment" element={<PlaceholderPage />} />
+          <Route path="/permits" element={<PlaceholderPage />} />
+          <Route path="/access-control" element={<PlaceholderPage />} />
         </Routes>
       </div>
       <NewRequestModal

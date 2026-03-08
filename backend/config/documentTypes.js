@@ -44,7 +44,7 @@ const documentTypes = [
   },
   {
     category: "Other",
-    icon: "📄",
+    icon: " ",
     types: [
       { id: "other", name: "Other document..." }
     ]
