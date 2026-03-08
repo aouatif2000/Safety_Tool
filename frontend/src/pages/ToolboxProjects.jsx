@@ -40,7 +40,7 @@ export default function ToolboxProjects() {
             key={project.id}
             className="card card-hover"
             style={{ display: "flex", alignItems: "center", padding: "20px 24px", marginBottom: 12, cursor: "pointer" }}
-            onClick={() => navigate(`/toolbox/${project.id}`)}
+            onClick={() => navigate(`/toolbox/${project.id}/wizard`)}
           >
             <div style={{ width: 48, height: 48, borderRadius: 12, background: "var(--primary-light)", display: "flex", alignItems: "center", justifyContent: "center", marginRight: 18, flexShrink: 0 }}>
               <FolderOpen size={22} color="var(--primary)" />

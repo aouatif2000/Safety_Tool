@@ -12,34 +12,63 @@ const documentRules = require('../config/documentRules');
 /**
  * POST /api/toolbox/generate-document
  * Generate a new document using AI
+ * Body can contain either structured context or simple parameters
  */
 router.post('/generate-document', async (req, res) => {
   try {
-    const { documentType, context, createdBy, tags } = req.body;
+    const { 
+      documentType, 
+      context,
+      // Alternative simple parameters (from frontend)
+      projectId,
+      topic,
+      typeOfWork,
+      location,
+      mainHazards,
+      additionalNotes,
+      language,
+      createdBy, 
+      tags 
+    } = req.body;
     
-    // Validate input
-    if (!documentType || !context) {
+    // Validate documentType
+    if (!documentType) {
       return res.status(400).json({
         success: false,
-        error: 'Missing required fields: documentType, context'
+        error: 'Missing required field: documentType'
       });
     }
     
-    if (!context.title) {
+    // Build context from either explicit context or simple parameters
+    let documentContext = context;
+    if (!documentContext) {
+      // Build context from simple parameters
+      documentContext = {
+        documentType,
+        title: topic || typeOfWork || `Generated ${documentType} Document`,
+        location,
+        tasks: mainHazards ? [mainHazards] : [],
+        customInstructions: additionalNotes,
+        language: language || 'en'
+      };
+    }
+    
+    // Validate context has at least a title
+    if (!documentContext.title) {
       return res.status(400).json({
         success: false,
         error: 'Context must include a title'
       });
     }
     
-    console.log(`[API] Generating ${documentType} document: "${context.title}"`);
+    console.log(`[API] Generating ${documentType} document: "${documentContext.title}"`);
     
     // Generate document
     const document = await toolboxService.generateDocument({
       documentType,
-      context,
-      createdBy,
-      tags
+      context: documentContext,
+      createdBy: createdBy || 'System',
+      tags: tags || []
     });
     
     res.json({

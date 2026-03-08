@@ -7,6 +7,7 @@ import Dashboard from "./pages/Dashboard";
 import ToolboxProjects from "./pages/ToolboxProjects";
 import CreateProject from "./pages/CreateProject";
 import ToolboxSessions from "./pages/ToolboxSessions";
+import LiveToolboxWizard from "./pages/LiveToolboxWizard";
 import SessionDetail from "./pages/SessionDetail";
 import Inspection from "./pages/Inspection";
 import PlaceholderPage from "./pages/PlaceholderPage";
@@ -29,6 +30,7 @@ function AppShell() {
           <Route path="/" element={<Dashboard />} />
           <Route path="/toolbox" element={<ToolboxProjects />} />
           <Route path="/toolbox/create" element={<CreateProject />} />
+          <Route path="/toolbox/:projectId/wizard" element={<LiveToolboxWizard />} />
           <Route path="/toolbox/:projectId" element={<ToolboxSessions />} />
           <Route path="/toolbox/:projectId/session/:sessionId" element={<SessionDetail />} />
           <Route path="/incidents" element={<Inspection />} />

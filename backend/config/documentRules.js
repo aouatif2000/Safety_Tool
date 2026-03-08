@@ -80,6 +80,29 @@ const maintenanceInstructionRules = [
 ];
 
 /**
+ * Toolbox Talk Rules
+ */
+const toolboxTalkRules = [
+  "MUST be formatted as a short, engaging safety talk suitable for 10-15 minutes",
+  "MUST start with an 'Introduction' section (2-3 minutes) that hooks workers' attention",
+  "MUST include a 'What is the Hazard' section clearly explaining the primary safety concern",
+  "MUST include a 'Why Should We Care' section relating the topic to real workplace incidents or injuries",
+  "MUST include 'Key Points' section with 4-6 critical takeaways (5-7 minutes content)",
+  "MUST include specific, actionable prevention measures workers can implement immediately",
+  "MUST include real-world examples or scenarios relevant to the workplace",
+  "MUST end with a 'Call to Action' encouraging worker engagement and questions",
+  "MUST avoid excessive jargon and use everyday language",
+  "MUST be written conversationally as if delivered orally by a supervisor",
+  "MUST include discussion questions to engage workers and encourage participation",
+  "MUST highlight relevant safety statistics or incident data if applicable",
+  "MUST emphasize worker responsibility and mutual safety culture",
+  "SHOULD include a 'What to Remember' summary section",
+  "SHOULD include practical tips for implementation in their specific work area",
+  "SHOULD suggest follow-up actions or monitoring after the talk",
+  "SHOULD be appropriate for the specified work location and type of work"
+];
+
+/**
  * Get rules for a specific document type
  */
 function getRules(documentType) {
@@ -87,7 +110,8 @@ function getRules(documentType) {
     safety_procedure: safetyProcedureRules,
     machine_operation: machineOperationRules,
     checklist: checklistRules,
-    maintenance_instruction: maintenanceInstructionRules
+    maintenance_instruction: maintenanceInstructionRules,
+    toolbox: toolboxTalkRules
   };
   
   return rulesMap[documentType] || safetyProcedureRules;
@@ -99,32 +123,68 @@ function getRules(documentType) {
 function getDocumentTypes() {
   return [
     {
+      id: 'toolbox',
+      name: 'Toolbox',
+      description: 'Toolbox Talk',
+      icon: '🗣️',
+      ruleCount: toolboxTalkRules.length,
+      category: 'Project & Site-Specific'
+    },
+    {
+      id: 'tra',
+      name: 'TRA',
+      description: 'Task Risk Analysis',
+      icon: '📋',
+      ruleCount: safetyProcedureRules.length,
+      category: 'Project & Site-Specific'
+    },
+    {
+      id: 'rie',
+      name: 'RI&E',
+      description: 'Risk Inventory & Evaluation',
+      icon: '📊',
+      ruleCount: checklistRules.length,
+      category: 'Company/Structural'
+    },
+    {
+      id: 'method_statement',
+      name: 'Method Statement',
+      description: 'Method Statement',
+      icon: '📝',
+      ruleCount: safetyProcedureRules.length,
+      category: 'Company/Structural'
+    },
+    {
       id: 'safety_procedure',
       name: 'Safety Procedure',
       description: 'Step-by-step safety procedures for workplace tasks',
       icon: '📋',
-      ruleCount: safetyProcedureRules.length
+      ruleCount: safetyProcedureRules.length,
+      category: 'Company/Structural'
     },
     {
       id: 'machine_operation',
       name: 'Machine Operation Guide',
       description: 'Comprehensive guides for operating machinery safely',
       icon: '⚙️',
-      ruleCount: machineOperationRules.length
+      ruleCount: machineOperationRules.length,
+      category: 'Subcontractor Documentation'
     },
     {
       id: 'checklist',
       name: 'Safety Checklist',
       description: 'Inspection and verification checklists',
       icon: '✓',
-      ruleCount: checklistRules.length
+      ruleCount: checklistRules.length,
+      category: 'Other'
     },
     {
       id: 'maintenance_instruction',
       name: 'Maintenance Instruction',
       description: 'Detailed maintenance procedures and schedules',
       icon: '🔧',
-      ruleCount: maintenanceInstructionRules.length
+      ruleCount: maintenanceInstructionRules.length,
+      category: 'Other'
     }
   ];
 }
@@ -135,5 +195,6 @@ module.exports = {
   safetyProcedureRules,
   machineOperationRules,
   checklistRules,
-  maintenanceInstructionRules
+  maintenanceInstructionRules,
+  toolboxTalkRules
 };
