@@ -22,6 +22,7 @@ app.use('/api/incidents', require('./routes/incidents'));
 app.use('/api/risk-assessments', require('./routes/riskAssessments'));
 app.use('/api/permits', require('./routes/permits'));
 app.use('/api/access-control', require('./routes/accessControl'));
+app.use('/api/knowledge-base', require('./routes/knowledgeBase'));
 
 // Dashboard stats endpoint
 app.get('/api/dashboard/stats', async (req, res) => {

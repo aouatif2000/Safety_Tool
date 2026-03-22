@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { X, ChevronRight, Sparkles, Edit } from "lucide-react";
+import { X, ChevronRight, Sparkles, Edit, CheckCircle, Save } from "lucide-react";
 import * as api from "../services/api";
 
 export default function LiveToolboxWizard() {
@@ -13,6 +13,9 @@ export default function LiveToolboxWizard() {
   const [customText, setCustomText] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedContent, setGeneratedContent] = useState(null);
+  const [editedMarkdown, setEditedMarkdown] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState(null);
 
   useEffect(() => {
     api.getProject(projectId).then(setProject).catch(console.error);
@@ -54,6 +57,8 @@ export default function LiveToolboxWizard() {
       if (response && response.success && response.document) {
         // Store generated content and show preview
         setGeneratedContent(response.document);
+        setEditedMarkdown(response.document.rawMarkdown || "");
+        setSaveMessage(null);
         setCurrentStep("preview");
       } else {
         throw new Error("No document returned from API");
@@ -73,6 +78,43 @@ export default function LiveToolboxWizard() {
 
   const handleAcceptContent = () => {
     setCurrentStep("attendees");
+  };
+
+  const handlePublish = async () => {
+    if (!generatedContent?.id) return;
+    setIsSaving(true);
+    setSaveMessage(null);
+    try {
+      await api.updateDocument(generatedContent.id, {
+        rawMarkdown: editedMarkdown,
+        status: "published"
+      });
+      setSaveMessage("Document published successfully");
+      setTimeout(() => {
+        navigate(`/toolbox/${projectId}`);
+      }, 1500);
+    } catch (error) {
+      alert(`Failed to publish: ${error.message}`);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSaveDraft = async () => {
+    if (!generatedContent?.id) return;
+    setIsSaving(true);
+    setSaveMessage(null);
+    try {
+      await api.updateDocument(generatedContent.id, {
+        rawMarkdown: editedMarkdown,
+        status: "draft"
+      });
+      setSaveMessage("Saved as draft");
+    } catch (error) {
+      alert(`Failed to save draft: ${error.message}`);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleClose = () => {
@@ -304,73 +346,138 @@ export default function LiveToolboxWizard() {
 
           {currentStep === "preview" && generatedContent && (
             <div>
-              <div style={{ marginBottom: 24, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div style={{ marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
                 <div>
-                  <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 4, display: "flex", alignItems: "center", gap: 8 }}>
-                    <span>Toolbox Contents</span>
-                  </h2>
-                  <p style={{ fontSize: 13, color: "var(--text-secondary)" }}>Preview the generated content</p>
+                  <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>Toolbox Contents</h2>
+                  <p style={{ fontSize: 13, color: "var(--text-secondary)" }}>Edit and approve the generated content</p>
                 </div>
-                <button
-                  onClick={handleEditTopic}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                    padding: "8px 12px",
-                    background: "var(--bg-subtle)",
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <button
+                    onClick={handleEditTopic}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 6,
+                      padding: "8px 12px",
+                      background: "var(--bg-subtle)",
+                      border: "1px solid var(--border-light)",
+                      borderRadius: "var(--radius-md)",
+                      cursor: "pointer", fontWeight: 600, fontSize: 12,
+                      color: "var(--text-secondary)"
+                    }}
+                  >
+                    <Edit size={14} />
+                    Regenerate
+                  </button>
+                  <button
+                    onClick={handleSaveDraft}
+                    disabled={isSaving}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 6,
+                      padding: "8px 14px",
+                      background: "white",
+                      border: "1px solid var(--border-light)",
+                      borderRadius: "var(--radius-md)",
+                      cursor: isSaving ? "not-allowed" : "pointer",
+                      fontWeight: 600, fontSize: 12,
+                      color: "var(--text-dark)",
+                      opacity: isSaving ? 0.6 : 1
+                    }}
+                  >
+                    <Save size={14} />
+                    Save as Draft
+                  </button>
+                  <button
+                    onClick={handlePublish}
+                    disabled={isSaving}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 6,
+                      padding: "8px 14px",
+                      background: "#059669",
+                      border: "none",
+                      borderRadius: "var(--radius-md)",
+                      cursor: isSaving ? "not-allowed" : "pointer",
+                      fontWeight: 600, fontSize: 12,
+                      color: "white",
+                      opacity: isSaving ? 0.6 : 1
+                    }}
+                  >
+                    <CheckCircle size={14} />
+                    {isSaving ? "Saving..." : "Approve & Publish"}
+                  </button>
+                </div>
+              </div>
+
+              {saveMessage && (
+                <div style={{
+                  display: "flex", alignItems: "center", gap: 8,
+                  padding: "10px 16px",
+                  background: "#d1fae5",
+                  border: "1px solid rgba(5,150,105,0.25)",
+                  borderRadius: "var(--radius-md)",
+                  marginBottom: 16,
+                  fontSize: 13, fontWeight: 600, color: "#065f46"
+                }}>
+                  <CheckCircle size={14} />
+                  {saveMessage}
+                </div>
+              )}
+
+              <div style={{ display: "flex", gap: 16 }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8, color: "var(--text-muted)", marginBottom: 8 }}>Editor</div>
+                  <textarea
+                    value={editedMarkdown}
+                    onChange={(e) => setEditedMarkdown(e.target.value)}
+                    style={{
+                      width: "100%",
+                      minHeight: 400,
+                      padding: "14px 16px",
+                      fontFamily: "'Courier New', Courier, monospace",
+                      fontSize: 13,
+                      lineHeight: 1.6,
+                      border: "1px solid var(--border-light)",
+                      borderRadius: "var(--radius-md)",
+                      resize: "vertical",
+                      background: "#f8fafc",
+                      color: "var(--text-dark)",
+                      boxSizing: "border-box"
+                    }}
+                  />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8, color: "var(--text-muted)", marginBottom: 8 }}>Preview</div>
+                  <div style={{
+                    minHeight: 400,
+                    maxHeight: 500,
+                    overflowY: "auto",
+                    padding: "14px 16px",
+                    background: "white",
                     border: "1px solid var(--border-light)",
                     borderRadius: "var(--radius-md)",
-                    cursor: "pointer",
-                    fontWeight: 600,
-                    fontSize: 12,
-                    color: "var(--text-secondary)"
-                  }}
-                >
-                  <Edit size={14} />
-                  Edit
-                </button>
-              </div>
-              <div style={{
-                background: "white",
-                border: "1px solid var(--border-light)",
-                borderRadius: "var(--radius-md)",
-                padding: 24,
-                maxHeight: 400,
-                overflowY: "auto"
-              }}>
-                {generatedContent.rawMarkdown ? (
-                  <div style={{ lineHeight: 1.6, fontSize: 14, color: "var(--text-dark)" }}>
-                    {generatedContent.rawMarkdown.split('\n').map((line, idx) => {
-                      if (line.match(/^#+\s/)) {
-                        const level = line.match(/^#+/)[0].length;
-                        return (
-                          <div
-                            key={idx}
-                            style={{
-                              fontSize: 18 - (level - 1) * 2,
-                              fontWeight: 700,
-                              marginTop: idx > 0 ? 16 : 0,
-                              marginBottom: 8
-                            }}
-                          >
-                            {line.replace(/^#+\s/, '')}
-                          </div>
-                        );
-                      }
-                      if (line.trim() === '') {
-                        return <div key={idx} style={{ height: 8 }} />;
-                      }
-                      return (
-                        <div key={idx} style={{ marginBottom: 8 }}>
-                          {line}
-                        </div>
-                      );
-                    })}
+                    lineHeight: 1.6,
+                    fontSize: 14,
+                    color: "var(--text-dark)"
+                  }}>
+                    {editedMarkdown ? (
+                      editedMarkdown.split('\n').map((line, idx) => {
+                        if (line.match(/^#+\s/)) {
+                          const level = line.match(/^#+/)[0].length;
+                          return (
+                            <div key={idx} style={{ fontSize: 18 - (level - 1) * 2, fontWeight: 700, marginTop: idx > 0 ? 16 : 0, marginBottom: 8 }}>
+                              {line.replace(/^#+\s/, '')}
+                            </div>
+                          );
+                        }
+                        if (line.startsWith('- ') || line.startsWith('* ')) {
+                          return <div key={idx} style={{ paddingLeft: 16, marginBottom: 4 }}>• {line.slice(2)}</div>;
+                        }
+                        if (line.trim() === '') return <div key={idx} style={{ height: 8 }} />;
+                        return <div key={idx} style={{ marginBottom: 6 }}>{line}</div>;
+                      })
+                    ) : (
+                      <div style={{ color: "var(--text-muted)" }}>Start typing to see preview...</div>
+                    )}
                   </div>
-                ) : (
-                  <div>No content to display</div>
-                )}
+                </div>
               </div>
             </div>
           )}
@@ -398,27 +505,29 @@ export default function LiveToolboxWizard() {
           >
             Cancel
           </button>
-          <button
-            onClick={handleNext}
-            disabled={isGenerating || (currentStep === "topic" && !selectedTopic && !customText)}
-            style={{
-              padding: "10px 20px",
-              background: "var(--primary)",
-              color: "white",
-              border: "none",
-              borderRadius: "var(--radius-md)",
-              cursor: isGenerating || (currentStep === "topic" && !selectedTopic && !customText) ? "not-allowed" : "pointer",
-              fontWeight: 600,
-              fontSize: 14,
-              opacity: isGenerating || (currentStep === "topic" && !selectedTopic && !customText) ? 0.6 : 1,
-              display: "flex",
-              alignItems: "center",
-              gap: 8
-            }}
-          >
-            {isGenerating ? "Generating..." : currentStep === "topic" ? "Generate Toolbox Content" : "Next"}
-            {!isGenerating && <ChevronRight size={16} />}
-          </button>
+          {currentStep !== "preview" && (
+            <button
+              onClick={currentStep === "topic" ? handleGenerateContent : handleNext}
+              disabled={isGenerating || (currentStep === "topic" && !selectedTopic && !customText)}
+              style={{
+                padding: "10px 20px",
+                background: "var(--primary)",
+                color: "white",
+                border: "none",
+                borderRadius: "var(--radius-md)",
+                cursor: isGenerating || (currentStep === "topic" && !selectedTopic && !customText) ? "not-allowed" : "pointer",
+                fontWeight: 600,
+                fontSize: 14,
+                opacity: isGenerating || (currentStep === "topic" && !selectedTopic && !customText) ? 0.6 : 1,
+                display: "flex",
+                alignItems: "center",
+                gap: 8
+              }}
+            >
+              {isGenerating ? "Generating..." : currentStep === "topic" ? "Generate Toolbox Content" : "Next"}
+              {!isGenerating && <ChevronRight size={16} />}
+            </button>
+          )}
         </div>
       </div>
     </div>

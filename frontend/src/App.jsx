@@ -11,6 +11,7 @@ import LiveToolboxWizard from "./pages/LiveToolboxWizard";
 import SessionDetail from "./pages/SessionDetail";
 import Inspection from "./pages/Inspection";
 import PlaceholderPage from "./pages/PlaceholderPage";
+import KnowledgeBase from "./pages/KnowledgeBase";
 import "./styles/globals.css";
 
 function AppShell() {
@@ -37,6 +38,7 @@ function AppShell() {
           <Route path="/risk-assessment" element={<PlaceholderPage />} />
           <Route path="/permits" element={<PlaceholderPage />} />
           <Route path="/access-control" element={<PlaceholderPage />} />
+          <Route path="/knowledge-base" element={<KnowledgeBase />} />
         </Routes>
       </div>
       <NewRequestModal

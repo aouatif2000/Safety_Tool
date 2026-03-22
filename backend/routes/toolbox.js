@@ -8,6 +8,7 @@ const router = express.Router();
 const toolboxService = require('../services/toolboxService');
 const llmService = require('../services/llmService');
 const documentRules = require('../config/documentRules');
+const { getRelevantContext } = require('../services/knowledgeBaseService');
 
 /**
  * POST /api/toolbox/generate-document
@@ -62,11 +63,21 @@ router.post('/generate-document', async (req, res) => {
     }
     
     console.log(`[API] Generating ${documentType} document: "${documentContext.title}"`);
+
+    // Auto-retrieve relevant Knowledge Base context for this request
+    const kbQuery = [
+      topic, typeOfWork, documentContext.title, location, mainHazards
+    ].filter(Boolean).join(' ');
+    const kbContext = getRelevantContext(kbQuery);
+    if (kbContext) {
+      console.log('[API] Injecting Knowledge Base context into generation');
+    }
     
     // Generate document
     const document = await toolboxService.generateDocument({
       documentType,
       context: documentContext,
+      documentContext: kbContext,
       createdBy: createdBy || 'System',
       tags: tags || []
     });

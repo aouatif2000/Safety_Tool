@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   LayoutDashboard, Wrench, AlertCircle, TrendingUp,
-  FileText, Lock, Moon, Settings, LogOut, Shield, Plus
+  FileText, Lock, Moon, Settings, LogOut, Shield, Plus, BookOpen
 } from "lucide-react";
 import "../styles/sidebar.css";
 
@@ -17,6 +17,12 @@ const navGroups = [
       { id: "risk", label: "  Risk Assessment", icon: TrendingUp, path: "/risk-assessment" },
       { id: "permits", label: "  Permit System", icon: FileText, path: "/permits" },
       { id: "access", label: "  Access Control", icon: Lock, path: "/access-control" },
+    ]
+  },
+  {
+    label: "Administration",
+    items: [
+      { id: "knowledge-base", label: "Knowledge Base", icon: BookOpen, path: "/knowledge-base" },
     ]
   }
 ];

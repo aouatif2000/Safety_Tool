@@ -43,12 +43,25 @@ The document should be professional, comprehensive, and immediately usable in a 
 }
 
 /**
- * Build user prompt with context details
+ * Build user prompt with context details.
+ * If documentContext is provided (retrieved from the company Knowledge Base),
+ * it is prepended as the primary reference before the generation request.
  */
-function buildUserPrompt(context) {
-  let prompt = `Generate a ${context.documentType.replace('_', ' ')} with the following specifications:
+function buildUserPrompt(context, documentContext = null) {
+  let prompt = '';
 
-**Title:** ${context.title}`;
+  if (documentContext) {
+    prompt +=
+      '=== COMPANY KNOWLEDGE BASE ===\n' +
+      'The following content was retrieved from the company\'s own documents.\n' +
+      'Use this as your PRIMARY reference. Reflect the company\'s exact terminology,\n' +
+      'equipment names, process steps, roles, and standards found in this content.\n' +
+      'Generic advice should only be used to fill gaps not covered by these documents.\n\n' +
+      documentContext +
+      '\n\n=== END OF COMPANY KNOWLEDGE BASE ===\n\n';
+  }
+
+  prompt += `Generate a ${context.documentType.replace('_', ' ')} with the following specifications:\n\n**Title:** ${context.title}`;
 
   if (context.equipment) {
     prompt += `\n**Equipment/Machinery:** ${context.equipment}`;
@@ -90,11 +103,18 @@ function buildUserPrompt(context) {
 }
 
 /**
- * Generate document using Ollama LLM
+ * Generate document using Ollama LLM.
+ * @param {string} documentType
+ * @param {object} context        - User-supplied generation context
+ * @param {string[]} rules        - Document-type-specific rules
+ * @param {string|null} documentContext - Pre-retrieved KB text (optional)
  */
-async function generateDocument(documentType, context, rules) {
+async function generateDocument(documentType, context, rules, documentContext = null) {
   const systemPrompt = buildSystemPrompt(documentType, rules);
-  const userPrompt = buildUserPrompt(context);
+  const userPrompt = buildUserPrompt(context, documentContext);
+  if (documentContext) {
+    console.log(`[LLM] Knowledge Base context injected (${documentContext.length} chars)`);
+  }
   
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);

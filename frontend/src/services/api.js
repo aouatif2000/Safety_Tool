@@ -98,10 +98,17 @@ export const getSession = async (sessionId) => {
   };
 };
 
-export const updateSessionStatus = (id, status) => {
-  // No backend endpoint for this yet - mock implementation
-  return Promise.resolve({ id, status });
-};
+export const updateSessionStatus = (id, status) =>
+  fetchJson(`/toolbox/documents/${id}`, {
+    method: "PUT",
+    body: JSON.stringify({ status })
+  });
+
+export const updateDocument = (id, updates) =>
+  fetchJson(`/toolbox/documents/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(updates)
+  });
 
 export const deleteSession = (id) => {
   // No backend endpoint for this yet - mock implementation
@@ -121,3 +128,23 @@ export const analyzePhoto = async (file) => {
 };
 
 export const getInspections = () => fetchJson("/incidents");
+
+// Knowledge Base
+export const uploadToKnowledgeBase = async (files) => {
+  const formData = new FormData();
+  files.forEach(file => formData.append("files", file));
+  const res = await fetch(`${API_BASE}/knowledge-base/upload`, {
+    method: "POST",
+    body: formData
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: "Upload failed" }));
+    throw new Error(err.error || "Upload failed");
+  }
+  return res.json();
+};
+
+export const getKnowledgeBaseDocuments = () => fetchJson("/knowledge-base/documents");
+
+export const deleteKnowledgeBaseDocument = (docId) =>
+  fetchJson(`/knowledge-base/documents/${docId}`, { method: "DELETE" });

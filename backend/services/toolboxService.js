@@ -14,13 +14,13 @@ let documentIdCounter = 1;
  * Generate a new document using AI
  */
 async function generateDocument(spec) {
-  const { documentType, context } = spec;
+  const { documentType, context, documentContext } = spec;
   
   // Get rules for this document type
   const rules = documentRules.getRules(documentType);
   
-  // Generate document using LLM
-  const result = await llmService.generateDocument(documentType, context, rules);
+  // Generate document using LLM (documentContext may carry KB-retrieved text)
+  const result = await llmService.generateDocument(documentType, context, rules, documentContext);
   
   if (!result.success) {
     throw new Error('Document generation failed');
@@ -112,12 +112,20 @@ function updateDocument(id, updates) {
   if (updates.title) document.title = updates.title;
   if (updates.tags) document.tags = updates.tags;
   if (updates.status) document.metadata.status = updates.status;
+  let contentUpdated = false;
+  if (updates.rawMarkdown !== undefined) {
+    document.rawMarkdown = updates.rawMarkdown;
+    contentUpdated = true;
+  }
   if (updates.content) {
     document.content = updates.content;
+    contentUpdated = true;
+  }
+  if (contentUpdated) {
     document.metadata.version++;
     document.metadata.updatedAt = new Date().toISOString();
   }
-  
+
   documents[index] = document;
   
   return document;
