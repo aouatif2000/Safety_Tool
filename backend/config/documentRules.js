@@ -80,26 +80,88 @@ const maintenanceInstructionRules = [
 ];
 
 /**
- * Toolbox Talk Rules
+ * Toolbox Talk Rules — INC-01 compliant 10-section structure
+ *
+ * The LLM system prompt (llmService.buildSystemPrompt) enforces these as a
+ * strict ordered template. Do NOT reorder or omit sections here.
  */
 const toolboxTalkRules = [
-  "MUST be formatted as a short, engaging safety talk suitable for 10-15 minutes",
-  "MUST start with an 'Introduction' section (2-3 minutes) that hooks workers' attention",
-  "MUST include a 'What is the Hazard' section clearly explaining the primary safety concern",
-  "MUST include a 'Why Should We Care' section relating the topic to real workplace incidents or injuries",
-  "MUST include 'Key Points' section with 4-6 critical takeaways (5-7 minutes content)",
-  "MUST include specific, actionable prevention measures workers can implement immediately",
-  "MUST include real-world examples or scenarios relevant to the workplace",
-  "MUST end with a 'Call to Action' encouraging worker engagement and questions",
-  "MUST avoid excessive jargon and use everyday language",
-  "MUST be written conversationally as if delivered orally by a supervisor",
-  "MUST include discussion questions to engage workers and encourage participation",
-  "MUST highlight relevant safety statistics or incident data if applicable",
-  "MUST emphasize worker responsibility and mutual safety culture",
-  "SHOULD include a 'What to Remember' summary section",
-  "SHOULD include practical tips for implementation in their specific work area",
-  "SHOULD suggest follow-up actions or monitoring after the talk",
-  "SHOULD be appropriate for the specified work location and type of work"
+  // ── Section 1 ──────────────────────────────────────────────────────────────
+  "SECTION 1 — CRITICAL WARNING: Output a level-2 heading '## ⚠️ Critical Warning'. " +
+  "Below it write a blockquote (> ...) containing exactly 4 lines, one per language, each prefixed with its language code: " +
+  "'🇬🇧 EN:', '🇳🇱 NL:', '🇵🇱 PL:', '🇷🇴 RO:'. " +
+  "Each line must be a single, imperative safety sentence directly relevant to the topic. " +
+  "This section is ALWAYS in all 4 languages regardless of the requested body language.",
+
+  // ── Section 2 ──────────────────────────────────────────────────────────────
+  "SECTION 2 — EMERGENCY CONTACTS: Output a level-2 heading '## 🚨 Emergency Contacts'. " +
+  "Below it output a markdown table with columns: Role | Name / Number | Action. " +
+  "First row must always be: Emergency Services | 112 | Call immediately for fire, injury or spill. " +
+  "Add at least 2 more rows using plausible site-specific roles (Site Safety Officer, First Aider) with placeholder values.",
+
+  // ── Section 3 ──────────────────────────────────────────────────────────────
+  "SECTION 3 — SCOPE OF WORK: Output a level-2 heading '## 📋 Scope of Work'. " +
+  "Write 2–3 sentences identifying: the specific topic/hazard covered, the project name and location, " +
+  "and the work type/trades involved. Use the project metadata provided.",
+
+  // ── Section 4 ──────────────────────────────────────────────────────────────
+  "SECTION 4 — RISK MATRIX WITH CONTROL MEASURES: Output a level-2 heading '## ⚡ Risk Matrix with Control Measures'. " +
+  "Below it output a markdown table with columns: # | Hazard | Severity (S 1–5) | Probability (P 1–5) | Risk Level | Control Measures | Residual Risk. " +
+  "Include a minimum of 5 rows. S and P are integers 1–5. " +
+  "Risk Level = S×P: 1–4 = 🟢 Low, 5–9 = 🟡 Medium, 10–14 = 🔴 High, 15–25 = 🔴🔴 Critical. " +
+  "Control Measures must be specific and actionable (not generic). " +
+  "Residual Risk is the expected risk level AFTER applying controls.",
+
+  // ── Section 5 ──────────────────────────────────────────────────────────────
+  "SECTION 5 — REGULATORY REFERENCES: Output a level-2 heading '## 📖 Regulatory References'. " +
+  "Output a bulleted list of at least 3 specific legal/standard references that directly apply to this topic. " +
+  "Cite real Belgian/EU legislation: Codex Welzijn op het Werk (specify Book and Title, e.g., Book IX Title 2 Art. 168), " +
+  "ARAB (Algemeen Reglement voor de Arbeidsbescherming, cite article number), " +
+  "and relevant EN/ISO standards (e.g., EN 363 for fall arrest). " +
+  "Each bullet must state: reference code, full title, and one sentence on why it applies.",
+
+  // ── Section 6 ──────────────────────────────────────────────────────────────
+  "SECTION 6 — DO / DON'T: Output a level-2 heading '## ✅❌ Do / Don't'. " +
+  "Then output two sub-sections: '### ✅ DO' followed by a bulleted list of at least 5 items, " +
+  "then '### ❌ DON'T' followed by a bulleted list of at least 5 items. " +
+  "All items must use imperative verbs. Items must be specific to the topic, not generic safety platitudes.",
+
+  // ── Section 7 ──────────────────────────────────────────────────────────────
+  "SECTION 7 — PRACTICAL SCENARIOS: Output a level-2 heading '## 🎬 Practical Scenarios'. " +
+  "Write exactly 2 realistic site scenarios. " +
+  "Format each as: '**Scenario N:** [situation description]' on one line, " +
+  "then '**Correct Response:** [step-by-step correct action]' on the next. " +
+  "Scenarios must reflect real-world mistakes workers actually make on this topic.",
+
+  // ── Section 8 ──────────────────────────────────────────────────────────────
+  "SECTION 8 — GOLDEN RULE: Output a level-2 heading '## 🏆 Golden Rule'. " +
+  "Output a single blockquote (> ...) containing one bold, memorable safety rule for this specific topic. " +
+  "Maximum 20 words. Must be immediately actionable and memorable.",
+
+  // ── Section 9 ──────────────────────────────────────────────────────────────
+  "SECTION 9 — COMPREHENSION CHECK: Output a level-2 heading '## 🧠 Comprehension Check'. " +
+  "Output exactly 3 multiple-choice questions. " +
+  "Format each question as: '**Q[N]:** [question text]' followed by 4 options on separate lines: 'a) ... b) ... c) ... d) ...'. " +
+  "Mark the correct answer with ✓ at the end of the correct option line. " +
+  "Questions must test real understanding of the content above, not trivial recall.",
+
+  // ── Section 10 ─────────────────────────────────────────────────────────────
+  "SECTION 10 — SIGN-OFF TABLE: Output a level-2 heading '## ✍️ Sign-Off'. " +
+  "Output a markdown table with columns: # | Full Name | Attended ☐ | Understood ☐ | Will Apply ☐ | Signature | Date. " +
+  "Include exactly 15 empty data rows (numbered 1–15, all other cells blank). " +
+  "This table must be the very last element in the document.",
+
+  // ── Cross-cutting constraints ───────────────────────────────────────────────
+  "OUTPUT CONSTRAINT: Output ONLY the 10 sections listed above. Do NOT add any introduction, summary, " +
+  "preamble, postamble, or any section not in this list. The document begins with Section 1 heading and ends with Section 10 table.",
+  "LANGUAGE CONSTRAINT: Write all sections in the requested body language. " +
+  "Section 1 (Critical Warning) is the ONLY exception — it is always written in all 4 languages (EN/NL/PL/RO).",
+  "MARKDOWN CONSTRAINT: All tables must be valid GitHub-flavoured markdown with a header separator row (| --- | --- |). " +
+  "Do NOT use HTML tags. Blockquotes use '> '. Bold uses '**text**'.",
+  "RISK MATRIX CONSTRAINT: S and P values must be integers 1–5. Risk Level is always computed as S×P. " +
+  "Control Measures must reduce the residual risk by at least one level compared to the initial risk.",
+  "REGULATORY CONSTRAINT: Only cite real, verifiable Belgian/EU legislation and standards. " +
+  "Do NOT invent article numbers. If unsure of a specific article, cite the Book/Title level and note 'consult full text'."
 ];
 
 /**
@@ -124,8 +186,8 @@ function getDocumentTypes() {
   return [
     {
       id: 'toolbox',
-      name: 'Toolbox',
-      description: 'Toolbox Talk',
+      name: 'Toolbox Talk',
+      description: 'INC-01 compliant 10-section toolbox talk with risk matrix, regulatory refs, MCQ and sign-off',
       icon: '🗣️',
       ruleCount: toolboxTalkRules.length,
       category: 'Project & Site-Specific'
