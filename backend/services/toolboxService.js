@@ -27,6 +27,7 @@ async function generateDocument(spec) {
   }
   
   // Create document record
+  const now = new Date().toISOString();
   const document = {
     id: `DOC-${String(documentIdCounter++).padStart(4, '0')}`,
     type: documentType,
@@ -35,11 +36,25 @@ async function generateDocument(spec) {
     rawMarkdown: result.rawMarkdown,
     metadata: {
       ...result.metadata,
-      createdAt: new Date().toISOString(),
+      createdAt: now,
       createdBy: spec.createdBy || 'System',
       status: 'draft',
-      version: 1
+      version: 1,
+      reviewedBy: null,
+      reviewedAt: null,
+      approvedBy: null,
+      approvedAt: null
     },
+    auditLog: [
+      {
+        action: 'created',
+        actor: spec.createdBy || 'System',
+        timestamp: now,
+        fromStatus: null,
+        toStatus: 'draft'
+      }
+    ],
+    signoffs: [],
     context: context,
     tags: spec.tags || []
   };
@@ -111,7 +126,9 @@ function updateDocument(id, updates) {
   // Update allowed fields
   if (updates.title) document.title = updates.title;
   if (updates.tags) document.tags = updates.tags;
-  if (updates.status) document.metadata.status = updates.status;
+  // Direct status updates via this function are only for draft saves (wizard).
+  // Workflow transitions (draft→review→approved) must go through transitionStatus().
+  if (updates.status && updates.status === 'draft') document.metadata.status = updates.status;
   let contentUpdated = false;
   if (updates.rawMarkdown !== undefined) {
     document.rawMarkdown = updates.rawMarkdown;
@@ -123,7 +140,16 @@ function updateDocument(id, updates) {
   }
   if (contentUpdated) {
     document.metadata.version++;
-    document.metadata.updatedAt = new Date().toISOString();
+    const updatedAt = new Date().toISOString();
+    document.metadata.updatedAt = updatedAt;
+    document.auditLog.push({
+      action: 'content_edited',
+      actor: updates.actor || 'System',
+      timestamp: updatedAt,
+      fromStatus: document.metadata.status,
+      toStatus: document.metadata.status,
+      note: `Version bumped to ${document.metadata.version}`
+    });
   }
 
   documents[index] = document;
@@ -180,46 +206,147 @@ function getDocumentStats() {
 }
 
 /**
- * Export document to different formats
+ * Export document to different formats.
+ * Returns { content, filename, mimeType } for text formats,
+ * or { buffer, filename, mimeType } for binary (pdf).
  */
-function exportDocument(id, format = 'markdown') {
+async function exportDocument(id, format = 'markdown') {
+  const pdfService = require('./pdfService');
   const document = getDocumentById(id);
-  
+
   if (!document) {
     throw new Error('Document not found');
   }
-  
+
+  const safeName = document.title.replace(/[^a-zA-Z0-9_-]/g, '_');
+
   switch (format) {
     case 'markdown':
       return {
         content: document.rawMarkdown,
-        filename: `${document.id}_${document.title.replace(/\s+/g, '_')}.md`,
+        filename: `${document.id}_${safeName}.md`,
         mimeType: 'text/markdown'
       };
-      
-    case 'text':
-      // Strip markdown formatting for plain text
+
+    case 'text': {
       const plainText = document.rawMarkdown
-        .replace(/#{1,6}\s+/g, '') // Remove headers
-        .replace(/\*\*(.+?)\*\*/g, '$1') // Remove bold
-        .replace(/\*(.+?)\*/g, '$1'); // Remove italic
-      
+        .replace(/#{1,6}\s+/g, '')
+        .replace(/\*\*(.+?)\*\*/g, '$1')
+        .replace(/\*(.+?)\*/g, '$1');
       return {
         content: plainText,
-        filename: `${document.id}_${document.title.replace(/\s+/g, '_')}.txt`,
+        filename: `${document.id}_${safeName}.txt`,
         mimeType: 'text/plain'
       };
-      
+    }
+
     case 'json':
       return {
         content: JSON.stringify(document, null, 2),
-        filename: `${document.id}_${document.title.replace(/\s+/g, '_')}.json`,
+        filename: `${document.id}_${safeName}.json`,
         mimeType: 'application/json'
       };
-      
+
+    case 'html': {
+      const html = pdfService.buildHtmlDocument(document);
+      return {
+        content: html,
+        filename: `${document.id}_${safeName}.html`,
+        mimeType: 'text/html'
+      };
+    }
+
+    case 'pdf': {
+      const buffer = await pdfService.generatePdf(document);
+      return {
+        buffer,
+        filename: `${document.id}_${safeName}.pdf`,
+        mimeType: 'application/pdf'
+      };
+    }
+
     default:
       throw new Error('Unsupported export format');
   }
+}
+
+/**
+ * Valid workflow status transitions.
+ * Keys are current status; values are the statuses that may be transitioned to.
+ * 'approved' is terminal — no further transitions allowed.
+ */
+const VALID_TRANSITIONS = {
+  draft:    ['review'],
+  review:   ['approved', 'draft'],  // 'draft' = rejected back for rework
+  approved: []                       // terminal
+};
+
+/**
+ * Transition a document through the approval workflow.
+ * Enforces the state machine and appends an immutable audit log entry.
+ *
+ * @param {string} id        - Document ID
+ * @param {string} newStatus - Target status ('review' | 'approved' | 'draft')
+ * @param {string} actor     - Name / identifier of the person performing the action
+ * @returns {object}         - Updated document
+ * @throws                   - If transition is invalid or document not found
+ */
+function transitionStatus(id, newStatus, actor) {
+  const index = documents.findIndex(doc => doc.id === id);
+  if (index === -1) throw new Error('Document not found');
+
+  const current = documents[index].metadata.status;
+  const allowed = VALID_TRANSITIONS[current] || [];
+
+  if (!allowed.includes(newStatus)) {
+    const allowedStr = allowed.length ? allowed.join(', ') : 'none (terminal state)';
+    throw new Error(`Invalid transition: ${current} → ${newStatus}. Allowed from '${current}': ${allowedStr}`);
+  }
+
+  const now = new Date().toISOString();
+  documents[index].metadata.status = newStatus;
+
+  if (newStatus === 'review') {
+    documents[index].metadata.reviewedBy = actor;
+    documents[index].metadata.reviewedAt = now;
+  }
+  if (newStatus === 'approved') {
+    documents[index].metadata.approvedBy = actor;
+    documents[index].metadata.approvedAt = now;
+  }
+
+  const actionLabel = newStatus === 'draft' ? 'rejected_to_draft' : newStatus;
+  documents[index].auditLog.push({
+    action: actionLabel,
+    actor,
+    timestamp: now,
+    fromStatus: current,
+    toStatus: newStatus
+  });
+
+  return documents[index];
+}
+
+/**
+ * Append a sign-off entry to a document.
+ * Also writes an immutable audit log entry.
+ *
+ * @param {string} id      - Document ID
+ * @param {object} signoff - Sign-off object { id, name, attended, understood, willApply, signedAt }
+ */
+function appendSignoff(id, signoff) {
+  const index = documents.findIndex(doc => doc.id === id);
+  if (index === -1) throw new Error('Document not found');
+
+  documents[index].signoffs.push(signoff);
+  documents[index].auditLog.push({
+    action: 'signed',
+    actor: signoff.name,
+    timestamp: signoff.signedAt,
+    fromStatus: documents[index].metadata.status,
+    toStatus: documents[index].metadata.status,
+    note: `Digital sign-off recorded (attended=${signoff.attended}, understood=${signoff.understood}, willApply=${signoff.willApply})`
+  });
 }
 
 module.exports = {
@@ -229,5 +356,7 @@ module.exports = {
   updateDocument,
   deleteDocument,
   getDocumentStats,
-  exportDocument
+  exportDocument,
+  transitionStatus,
+  appendSignoff
 };
