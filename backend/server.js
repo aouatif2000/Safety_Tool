@@ -18,6 +18,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // API Routes - THE 5 REQUIRED SERVICES
 app.use('/api/toolbox', require('./routes/toolbox'));
+app.use('/api/sessions', require('./routes/sessions'));
 app.use('/api/incidents', require('./routes/incidents'));
 app.use('/api/risk-assessments', require('./routes/riskAssessments'));
 app.use('/api/permits', require('./routes/permits'));

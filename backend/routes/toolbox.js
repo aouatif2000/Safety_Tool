@@ -9,6 +9,7 @@ const toolboxService = require('../services/toolboxService');
 const llmService = require('../services/llmService');
 const documentRules = require('../config/documentRules');
 const { getRelevantContext } = require('../services/knowledgeBaseService');
+const qrService = require('../services/qrService');
 
 /**
  * POST /api/toolbox/generate-document
@@ -246,23 +247,162 @@ router.get('/document-types', async (req, res) => {
 
 /**
  * GET /api/toolbox/export/:id
- * Export a document in different formats
+ * Export a document in different formats (markdown | text | json | html | pdf)
  */
 router.get('/export/:id', async (req, res) => {
   try {
     const format = req.query.format || 'markdown';
-    const exportData = toolboxService.exportDocument(req.params.id, format);
-    
+    const exportData = await toolboxService.exportDocument(req.params.id, format);
+
     res.setHeader('Content-Type', exportData.mimeType);
-    res.setHeader('Content-Disposition', `attachment; filename="${exportData.filename}"`);
-    res.send(exportData.content);
-    
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${exportData.filename}"`
+    );
+
+    // Binary formats use buffer; text formats use content string
+    res.send(exportData.buffer ?? exportData.content);
+
   } catch (error) {
     console.error('[API] Error exporting document:', error);
     res.status(500).json({
       success: false,
       error: error.message
     });
+  }
+});
+
+/**
+ * POST /api/toolbox/documents/:id/submit-review
+ * Transition document from draft → review
+ */
+router.post('/documents/:id/submit-review', (req, res) => {
+  try {
+    const doc = toolboxService.transitionStatus(
+      req.params.id,
+      'review',
+      req.body.actor || 'System'
+    );
+    res.json({ success: true, document: doc });
+  } catch (error) {
+    res.status(400).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * POST /api/toolbox/documents/:id/approve
+ * Transition document from review → approved
+ */
+router.post('/documents/:id/approve', (req, res) => {
+  try {
+    const doc = toolboxService.transitionStatus(
+      req.params.id,
+      'approved',
+      req.body.actor || 'System'
+    );
+    res.json({ success: true, document: doc });
+  } catch (error) {
+    res.status(400).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * POST /api/toolbox/documents/:id/reject
+ * Transition document from review → draft (reject back for rework)
+ */
+router.post('/documents/:id/reject', (req, res) => {
+  try {
+    const doc = toolboxService.transitionStatus(
+      req.params.id,
+      'draft',
+      req.body.actor || 'System'
+    );
+    res.json({ success: true, document: doc });
+  } catch (error) {
+    res.status(400).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * GET /api/toolbox/documents/:id/qr
+ * Generate a QR code data-URL for the document sign-off link.
+ * The QR encodes a 24-hour JWT linking to /sign/:token on the frontend.
+ */
+router.get('/documents/:id/qr', async (req, res) => {
+  try {
+    const doc = toolboxService.getDocumentById(req.params.id);
+    if (!doc) return res.status(404).json({ success: false, error: 'Document not found' });
+
+    const { dataUrl, url } = await qrService.generateQrDataUrl(doc.id);
+    res.json({ success: true, qrDataUrl: dataUrl, signUrl: url });
+  } catch (error) {
+    console.error('[API] QR generation error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * POST /api/toolbox/sign/:token
+ * Public endpoint — no auth required.
+ * Validates the JWT, checks the document is approved, records the sign-off.
+ * Body: { name, attended, understood, willApply }
+ */
+router.post('/sign/:token', async (req, res) => {
+  try {
+    let payload;
+    try {
+      payload = qrService.verifySignToken(req.params.token);
+    } catch {
+      return res.status(401).json({ success: false, error: 'Sign link has expired or is invalid.' });
+    }
+
+    const { documentId } = payload;
+    const doc = toolboxService.getDocumentById(documentId);
+    if (!doc) return res.status(404).json({ success: false, error: 'Document not found.' });
+
+    if (doc.metadata.status !== 'approved') {
+      return res.status(409).json({
+        success: false,
+        error: 'This document has not been approved yet and cannot be signed.'
+      });
+    }
+
+    const { name, attended = false, understood = false, willApply = false } = req.body;
+    if (!name || !name.trim()) {
+      return res.status(400).json({ success: false, error: 'Name is required.' });
+    }
+
+    const now = new Date().toISOString();
+    const signoff = {
+      id: `SIG-${Date.now()}`,
+      name: name.trim(),
+      attended,
+      understood,
+      willApply,
+      signedAt: now
+    };
+
+    // Append to doc using direct store mutation via toolboxService helper
+    toolboxService.appendSignoff(documentId, signoff);
+
+    res.json({ success: true, signoff });
+  } catch (error) {
+    console.error('[API] Sign error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * GET /api/toolbox/documents/:id/audit
+ * Returns the immutable audit log and signoffs list for a document.
+ */
+router.get('/documents/:id/audit', (req, res) => {
+  try {
+    const doc = toolboxService.getDocumentById(req.params.id);
+    if (!doc) return res.status(404).json({ success: false, error: 'Document not found' });
+    res.json({ success: true, auditLog: doc.auditLog, signoffs: doc.signoffs });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
