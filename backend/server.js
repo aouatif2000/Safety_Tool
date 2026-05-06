@@ -91,25 +91,36 @@ app.use((err, req, res, next) => {
 });
 
 // Start server
-app.listen(PORT, () => {
-  console.log('='.repeat(60));
-  console.log('   SAFETY PLATFORM SERVER');
-  console.log('='.repeat(60));
-  console.log(`✓ Server running on port ${PORT}`);
-  console.log(`✓ Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`✓ Ollama URL: ${process.env.OLLAMA_BASE_URL || 'http://localhost:11434'}`);
-  console.log(`✓ Ollama Model: ${process.env.OLLAMA_MODEL || 'phi3:mini'}`);
-  console.log('');
-  console.log('Available Services:');
-  console.log('    Toolbox Service (with AI): /api/toolbox');
-  console.log('    Incident Reporting: /api/incidents');
-  console.log('     Risk Assessment: /api/risk-assessments');
-  console.log('    Permit System: /api/permits');
-  console.log('    Access Control: /api/access-control');
-  console.log('');
-  console.log('Dashboard Stats: /api/dashboard/stats');
-  console.log('Health Check: /api/health');
-  console.log('='.repeat(60));
+async function startServer() {
+  const knowledgeBaseService = require('./services/knowledgeBaseService');
+  const preloaded = await knowledgeBaseService.preloadKnowledge();
+
+  app.listen(PORT, () => {
+    console.log('='.repeat(60));
+    console.log('   SAFETY PLATFORM SERVER');
+    console.log('='.repeat(60));
+    console.log(`✓ Server running on port ${PORT}`);
+    console.log(`✓ Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`✓ Ollama URL: ${process.env.OLLAMA_BASE_URL || 'http://localhost:11434'}`);
+    console.log(`✓ Ollama Model: ${process.env.OLLAMA_MODEL || 'phi3:mini'}`);
+    console.log(`✓ Knowledge base: ${preloaded} document(s) preloaded from backend/knowledge/`);
+    console.log('');
+    console.log('Available Services:');
+    console.log('    Toolbox Service (with AI): /api/toolbox');
+    console.log('    Incident Reporting: /api/incidents');
+    console.log('     Risk Assessment: /api/risk-assessments');
+    console.log('    Permit System: /api/permits');
+    console.log('    Access Control: /api/access-control');
+    console.log('');
+    console.log('Dashboard Stats: /api/dashboard/stats');
+    console.log('Health Check: /api/health');
+    console.log('='.repeat(60));
+  });
+}
+
+startServer().catch(err => {
+  console.error('[Server] Startup failed:', err);
+  process.exit(1);
 });
 
 module.exports = app;

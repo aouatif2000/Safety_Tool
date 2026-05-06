@@ -13,6 +13,15 @@ const INDEX_DIR = path.join(__dirname, '../knowledge-base/indexed');
 const TEMP_DIR  = path.join(__dirname, '../knowledge-base/temp');
 const INDEX_FILE = path.join(INDEX_DIR, 'index.json');
 
+const PRELOAD_DIR = path.join(__dirname, '../knowledge');
+
+// Map file extensions to MIME types accepted by extractTextFromFile
+const EXT_MIME_MAP = {
+  '.pdf':  'application/pdf',
+  '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  '.txt':  'text/plain'
+};
+
 // Ensure all directories exist on startup
 [RAW_DIR, INDEX_DIR, TEMP_DIR].forEach(dir => {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
@@ -150,7 +159,7 @@ function getStats() {
  * @param {string} query    - Free-text search query built from user inputs
  * @param {number} maxChars - Hard cap on returned context length (default 3000)
  */
-function getRelevantContext(query, maxChars = 3000) {
+function getRelevantContext(query, maxChars = 1500) {
   if (!query || searchIndex.length === 0) return null;
 
   const queryTokens = tokenize(query);
@@ -165,7 +174,7 @@ function getRelevantContext(query, maxChars = 3000) {
   const topChunks = scored
     .filter(c => c.score > 0)
     .sort((a, b) => b.score - a.score)
-    .slice(0, 10);
+    .slice(0, 5); // Max 5 chunks for Groq API
 
   if (topChunks.length === 0) return null;
 
@@ -180,10 +189,75 @@ function getRelevantContext(query, maxChars = 3000) {
   return context.trim() || null;
 }
 
+/**
+ * Preload documents from the backend/knowledge/ folder at server startup.
+ * Files already present in the index (matched by filename) are skipped.
+ * Returns the number of new documents indexed.
+ */
+async function preloadKnowledge() {
+  if (!fs.existsSync(PRELOAD_DIR)) {
+    console.warn('[KB] Preload folder not found, skipping:', PRELOAD_DIR);
+    return 0;
+  }
+
+  let files;
+  try {
+    files = fs.readdirSync(PRELOAD_DIR);
+  } catch (err) {
+    console.warn('[KB] Could not read preload folder:', err.message);
+    return 0;
+  }
+
+  const supported = files.filter(f => EXT_MIME_MAP[path.extname(f).toLowerCase()]);
+
+  if (supported.length === 0) {
+    console.warn('[KB] backend/knowledge/ is empty or contains no PDF/DOCX/TXT files — skipping preload');
+    return 0;
+  }
+
+  // Collect filenames already in the index to avoid re-indexing on restart
+  const indexedFilenames = new Set(searchIndex.map(c => c.filename));
+
+  let loaded = 0;
+  for (const filename of supported) {
+    if (indexedFilenames.has(filename)) {
+      console.log(`[KB] Already indexed, skipping: "${filename}"`);
+      continue;
+    }
+
+    const filePath = path.join(PRELOAD_DIR, filename);
+    const mimetype = EXT_MIME_MAP[path.extname(filename).toLowerCase()];
+
+    try {
+      const docId = `PRELOAD-${Date.now()}-${loaded}`;
+      const fullText = await extractTextFromFile(filePath, mimetype);
+      const chunks = chunkText(fullText);
+
+      const newChunks = chunks.map((text, i) => ({
+        docId,
+        filename,
+        chunkIndex: i,
+        text,
+        tokens: tokenize(text)
+      }));
+
+      searchIndex.push(...newChunks);
+      loaded++;
+      console.log(`[KB] Preloaded "${filename}" → ${chunks.length} chunks`);
+    } catch (err) {
+      console.error(`[KB] Failed to preload "${filename}":`, err.message);
+    }
+  }
+
+  if (loaded > 0) saveIndex();
+  return loaded;
+}
+
 module.exports = {
   addDocument,
   removeDocument,
   listDocuments,
   getStats,
-  getRelevantContext
+  getRelevantContext,
+  preloadKnowledge
 };

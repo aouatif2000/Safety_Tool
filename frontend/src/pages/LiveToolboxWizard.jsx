@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { X, ChevronRight, Sparkles, Edit, CheckCircle, Save } from "lucide-react";
+import { X, ChevronRight, Sparkles, Edit, CheckCircle, Save, Send } from "lucide-react";
 import * as api from "../services/api";
 
 export default function LiveToolboxWizard() {
@@ -16,6 +16,7 @@ export default function LiveToolboxWizard() {
   const [editedMarkdown, setEditedMarkdown] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState(null);
+  const [submitted, setSubmitted] = useState(false);
 
   useEffect(() => {
     api.getProject(projectId).then(setProject).catch(console.error);
@@ -51,7 +52,16 @@ export default function LiveToolboxWizard() {
         language: language,
         projectId: projectId,
         createdBy: 'System',
-        tags: ['toolbox', language]
+        tags: ['toolbox', language],
+        // Pass full project context so the LLM receives company identity
+        context: {
+          documentType: 'toolbox',
+          title: selectedTopic || customText,
+          location: project?.location || '',
+          language: language,
+          company: project?.company || '',
+          subcontractors: project?.subcontractors || []
+        }
       });
 
       if (response && response.success && response.document) {
@@ -80,21 +90,18 @@ export default function LiveToolboxWizard() {
     setCurrentStep("attendees");
   };
 
-  const handlePublish = async () => {
+  const handleSubmitForReview = async () => {
     if (!generatedContent?.id) return;
     setIsSaving(true);
     setSaveMessage(null);
     try {
-      await api.updateDocument(generatedContent.id, {
-        rawMarkdown: editedMarkdown,
-        status: "published"
-      });
-      setSaveMessage("Document published successfully");
-      setTimeout(() => {
-        navigate(`/toolbox/${projectId}`);
-      }, 1500);
+      // First flush any markdown edits, then transition to 'review'
+      await api.updateDocument(generatedContent.id, { rawMarkdown: editedMarkdown });
+      await api.submitForReview(generatedContent.id, 'HSEQ Manager');
+      setSubmitted(true);
+      setSaveMessage("Submitted for review — HSEQ Manager will be notified.");
     } catch (error) {
-      alert(`Failed to publish: ${error.message}`);
+      alert(`Failed to submit for review: ${error.message}`);
     } finally {
       setIsSaving(false);
     }
@@ -369,39 +376,39 @@ export default function LiveToolboxWizard() {
                   </button>
                   <button
                     onClick={handleSaveDraft}
-                    disabled={isSaving}
+                    disabled={isSaving || submitted}
                     style={{
                       display: "flex", alignItems: "center", gap: 6,
                       padding: "8px 14px",
                       background: "white",
                       border: "1px solid var(--border-light)",
                       borderRadius: "var(--radius-md)",
-                      cursor: isSaving ? "not-allowed" : "pointer",
+                      cursor: (isSaving || submitted) ? "not-allowed" : "pointer",
                       fontWeight: 600, fontSize: 12,
                       color: "var(--text-dark)",
-                      opacity: isSaving ? 0.6 : 1
+                      opacity: (isSaving || submitted) ? 0.6 : 1
                     }}
                   >
                     <Save size={14} />
                     Save as Draft
                   </button>
                   <button
-                    onClick={handlePublish}
-                    disabled={isSaving}
+                    onClick={handleSubmitForReview}
+                    disabled={isSaving || submitted}
                     style={{
                       display: "flex", alignItems: "center", gap: 6,
                       padding: "8px 14px",
-                      background: "#059669",
+                      background: submitted ? "#6b7280" : "#1a56db",
                       border: "none",
                       borderRadius: "var(--radius-md)",
-                      cursor: isSaving ? "not-allowed" : "pointer",
+                      cursor: (isSaving || submitted) ? "not-allowed" : "pointer",
                       fontWeight: 600, fontSize: 12,
                       color: "white",
-                      opacity: isSaving ? 0.6 : 1
+                      opacity: (isSaving || submitted) ? 0.75 : 1
                     }}
                   >
-                    <CheckCircle size={14} />
-                    {isSaving ? "Saving..." : "Approve & Publish"}
+                    <Send size={14} />
+                    {isSaving ? "Submitting..." : submitted ? "Submitted for Review" : "Submit for Review"}
                   </button>
                 </div>
               </div>
