@@ -1,17 +1,35 @@
 /**
- * Ollama LLM Service
- * Provides AI-powered document generation using local Ollama models
- * NO PAID APIs - Completely free and open-source
+ * LLM Service — Groq API
+ * Uses Groq cloud inference (free tier) for fast document generation.
+ * Sign up and get a free API key at https://console.groq.com
  */
 
-const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
-const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'phi3:mini';
-const REQUEST_TIMEOUT = 120000; // 120 seconds for longer documents
+const Groq = require('groq-sdk');
+
+const GROQ_MODEL = process.env.GROQ_MODEL || 'llama-3.1-8b-instant';
+
+function getGroqClient() {
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey) throw new Error('GROQ_API_KEY is not set in .env');
+  return new Groq({ apiKey });
+}
 
 /**
- * Build system prompt with document-specific rules
+ * Build system prompt with document-specific rules.
+ * Toolbox talks receive a dedicated strict template prompt; all other
+ * document types use the generic rules-driven prompt.
  */
 function buildSystemPrompt(documentType, rules) {
+  // ── Toolbox Talk: strict 10-section template enforcement ──────────────────
+  if (documentType === 'toolbox') {
+    return `You are a workplace safety consultant. Generate a Toolbox Talk safety document.
+Use markdown with ## headings for each section.
+Rules:
+${rules.map((rule, idx) => `${idx + 1}. ${rule}`).join('\n')}
+Do NOT use HTML. Start immediately with the first ## heading.`;
+  }
+
+  // ── All other document types: generic rules-driven prompt ─────────────────
   const typeNames = {
     safety_procedure: 'Safety Procedure',
     machine_operation: 'Machine Operation Guide',
@@ -51,17 +69,34 @@ function buildUserPrompt(context, documentContext = null) {
   let prompt = '';
 
   if (documentContext) {
+    // Enforce hard cap of 1500 chars
+    const cappedContext = documentContext.slice(0, 1500);
     prompt +=
       '=== COMPANY KNOWLEDGE BASE ===\n' +
       'The following content was retrieved from the company\'s own documents.\n' +
       'Use this as your PRIMARY reference. Reflect the company\'s exact terminology,\n' +
       'equipment names, process steps, roles, and standards found in this content.\n' +
       'Generic advice should only be used to fill gaps not covered by these documents.\n\n' +
-      documentContext +
+      cappedContext +
       '\n\n=== END OF COMPANY KNOWLEDGE BASE ===\n\n';
   }
 
   prompt += `Generate a ${context.documentType.replace('_', ' ')} with the following specifications:\n\n**Title:** ${context.title}`;
+
+  // Language instruction — toolbox talks honour an explicit language selection
+  if (context.language) {
+    const langLabels = { nl: 'Dutch (NL)', en: 'English (EN)', pl: 'Polish (PL)', ro: 'Romanian (RO)' };
+    const langLabel = langLabels[context.language] || 'English (EN)';
+    prompt += `\n**Body Language:** ${langLabel} — write all sections in this language except Section 1 (Critical Warning) which is always EN/NL/PL/RO`;
+  }
+
+  if (context.company) {
+    prompt += `\n**Company / Client:** ${context.company}`;
+  }
+
+  if (context.subcontractors && context.subcontractors.length > 0) {
+    prompt += `\n**Subcontractors on site:** ${context.subcontractors.join(', ')}`;
+  }
 
   if (context.equipment) {
     prompt += `\n**Equipment/Machinery:** ${context.equipment}`;
@@ -114,74 +149,57 @@ async function generateDocument(documentType, context, rules, documentContext = 
   const userPrompt = buildUserPrompt(context, documentContext);
   if (documentContext) {
     console.log(`[LLM] Knowledge Base context injected (${documentContext.length} chars)`);
+    console.log('[LLM] --- KB CONTEXT START ---');
+    console.log(documentContext);
+    console.log('[LLM] --- KB CONTEXT END ---');
   }
-  
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
-  
+
   try {
     console.log(`[LLM] Generating ${documentType} document: "${context.title}"`);
-    console.log(`[LLM] Using model: ${OLLAMA_MODEL}`);
-    
-    const response = await fetch(`${OLLAMA_BASE_URL}/api/chat`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: OLLAMA_MODEL,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
-        ],
-        stream: false,
-        options: {
-          temperature: 0.7,
-          top_p: 0.9,
-          num_predict: 3000 // Allow longer documents
-        }
-      }),
-      signal: controller.signal
+    console.log(`[LLM] Using model: ${GROQ_MODEL} via Groq API`);
+
+    const groq = getGroqClient();
+    const completion = await groq.chat.completions.create({
+      model: GROQ_MODEL,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ],
+      temperature: 0.7,
+      top_p: 0.9,
+      max_tokens: 3000
     });
 
-    clearTimeout(timeoutId);
+    const generatedContent = completion.choices[0].message.content;
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Ollama API error (${response.status}): ${errorText}`);
-    }
-
-    const data = await response.json();
-    const generatedContent = data.message.content;
-    
     console.log(`[LLM] Document generated successfully (${generatedContent.length} characters)`);
-    
+
     // Parse the markdown into structured sections
     const document = parseMarkdownToSections(generatedContent, context.title);
-    
+
     return {
       success: true,
       document,
       rawMarkdown: generatedContent,
       metadata: {
-        model: OLLAMA_MODEL,
+        model: GROQ_MODEL,
         generatedAt: new Date().toISOString(),
         wordCount: generatedContent.split(/\s+/).length,
         characterCount: generatedContent.length,
         documentType: documentType
       }
     };
-    
+
   } catch (error) {
-    clearTimeout(timeoutId);
     console.error('[LLM] Generation failed:', error.message);
-    
-    if (error.name === 'AbortError') {
-      throw new Error('Document generation timed out. Please try again or use a shorter specification.');
+
+    if (error.status === 401) {
+      throw new Error('Invalid GROQ_API_KEY. Check your .env file.');
     }
-    
-    if (error.message.includes('ECONNREFUSED')) {
-      throw new Error('Cannot connect to Ollama. Please ensure Ollama is running on ' + OLLAMA_BASE_URL);
+    if (error.status === 429) {
+      throw new Error('Groq rate limit reached. Please wait a moment and try again.');
     }
-    
+
     throw new Error(`Document generation failed: ${error.message}`);
   }
 }
@@ -252,34 +270,27 @@ function parseMarkdownToSections(markdown, defaultTitle) {
 }
 
 /**
- * Check Ollama health status
+ * Check Groq API health / connectivity
  */
 async function checkOllamaHealth() {
   try {
-    const response = await fetch(`${OLLAMA_BASE_URL}/api/tags`, {
-      method: 'GET'
-    });
-    
-    if (!response.ok) {
-      return { healthy: false, error: `HTTP ${response.status}` };
-    }
-    
-    const data = await response.json();
-    const models = data.models || [];
-    const hasModel = models.some(m => m.name.includes(OLLAMA_MODEL));
-    
+    const groq = getGroqClient();
+    const list = await groq.models.list();
+    const models = (list.data || []).map(m => m.id);
+    const hasModel = models.includes(GROQ_MODEL);
+
     return {
       healthy: true,
-      url: OLLAMA_BASE_URL,
-      model: OLLAMA_MODEL,
-      modelInstalled: hasModel,
-      availableModels: models.map(m => m.name)
+      provider: 'groq',
+      model: GROQ_MODEL,
+      modelAvailable: hasModel,
+      availableModels: models
     };
   } catch (error) {
     return {
       healthy: false,
-      error: error.message,
-      url: OLLAMA_BASE_URL
+      provider: 'groq',
+      error: error.message
     };
   }
 }
