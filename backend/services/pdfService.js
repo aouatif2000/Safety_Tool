@@ -1,14 +1,11 @@
 /**
  * PDF Service
  * Converts toolbox-talk markdown documents to A4-print-ready HTML or PDF buffers
- * using system Chrome via puppeteer-core + marked for markdown parsing.
+ * using html-pdf-node + marked for markdown parsing.
  */
 
-const puppeteer = require('puppeteer-core');
+const htmlPdfNode = require('html-pdf-node');
 const { marked } = require('marked');
-
-// Path to the system Chrome installation
-const CHROME_PATH = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -33,6 +30,11 @@ function esc(str) {
  * @returns {string}    - Full HTML string, A4-ready for print or puppeteer
  */
 function buildHtmlDocument(doc) {
+  console.log('[PDF] buildHtmlDocument called');
+  console.log('[PDF] doc.title:', doc?.title);
+  console.log('[PDF] doc.rawMarkdown:', doc?.rawMarkdown ? `${doc.rawMarkdown.length} chars` : 'MISSING/EMPTY');
+  console.log('[PDF] rawMarkdown preview:', doc?.rawMarkdown?.slice(0, 200) || '(none)');
+
   const bodyHtml = marked.parse(doc.rawMarkdown || '');
   const docId    = esc(doc.id);
   const title    = esc(doc.title || 'Toolbox Talk');
@@ -51,16 +53,6 @@ function buildHtmlDocument(doc) {
   <title>${title}</title>
   <style>
     /* ── Page Setup ── */
-    @page {
-      size: A4;
-      margin: 20mm 18mm 22mm 18mm;
-      @bottom-center {
-        content: "Document ${docId}  ·  Status: ${status}  ·  Page " counter(page) " of " counter(pages);
-        font-size: 8pt;
-        color: #6b7280;
-      }
-    }
-
     *, *::before, *::after { box-sizing: border-box; }
 
     body {
@@ -219,8 +211,16 @@ function buildHtmlDocument(doc) {
     }
 
     /* ── Print helpers ── */
-    @media print {
-      a { color: inherit; text-decoration: none; }
+    a { color: inherit; text-decoration: none; }
+
+    /* ── Digital Sign-off Section ── */
+    .signoff-section {
+      margin-top: 28px;
+      border-top: 2px solid #1a56db;
+      padding-top: 10px;
+    }
+    .signoff-section h2 {
+      background: #065f46;
     }
   </style>
 </head>
@@ -238,6 +238,38 @@ function buildHtmlDocument(doc) {
 
   <!-- Converted markdown body -->
   ${bodyHtml}
+
+  ${(doc.signoffs && doc.signoffs.length > 0) ? `
+  <!-- Digital sign-off records appended at export time -->
+  <div class="signoff-section">
+    <h2>Recorded Sign-Offs (Digital Record)</h2>
+    <p style="font-size:8.5pt;color:#6b7280;margin-bottom:8px;">
+      The following sign-offs were recorded digitally after this toolbox talk was delivered.
+    </p>
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Full Name</th>
+          <th>Attended</th>
+          <th>Understood</th>
+          <th>Will Apply</th>
+          <th>Date</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${doc.signoffs.map((s, i) => `
+        <tr>
+          <td>${i + 1}</td>
+          <td>${esc(s.name || '')}</td>
+          <td>${s.attended  ? '✓' : '✗'}</td>
+          <td>${s.understood ? '✓' : '✗'}</td>
+          <td>${s.willApply  ? '✓' : '✗'}</td>
+          <td>${s.signedAt ? new Date(s.signedAt).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }) : ''}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+  </div>` : ''}
 </body>
 </html>`;
 }
@@ -253,33 +285,19 @@ function buildHtmlDocument(doc) {
 async function generatePdf(doc) {
   const html = buildHtmlDocument(doc);
 
-  const browser = await puppeteer.launch({
-    executablePath: CHROME_PATH,
-    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
-    headless: true
-  });
+  const file = { content: html };
+  const options = {
+    format: 'A4',
+    printBackground: true
+  };
 
   try {
-    const page = await browser.newPage();
-    await page.setContent(html, { waitUntil: 'networkidle0' });
-
-    const pdfBuffer = await page.pdf({
-      format: 'A4',
-      printBackground: true,
-      displayHeaderFooter: true,
-      headerTemplate: '<div></div>',
-      footerTemplate: `
-        <div style="width:100%;font-size:8px;color:#9ca3af;padding:0 18mm;
-                    display:flex;justify-content:space-between;">
-          <span>Document ${esc(doc.id)} &nbsp;·&nbsp; Status: ${esc(doc.metadata?.status || 'draft')}</span>
-          <span>Page <span class="pageNumber"></span> of <span class="totalPages"></span></span>
-        </div>`,
-      margin: { top: '20mm', bottom: '22mm', left: '18mm', right: '18mm' }
-    });
-
+    const pdfBuffer = await htmlPdfNode.generatePdf(file, options);
+    console.log(`[PDF] Buffer size: ${pdfBuffer?.length ?? 0} bytes`);
     return pdfBuffer;
-  } finally {
-    await browser.close();
+  } catch (err) {
+    console.error('[PDF] generatePdf failed:', err);
+    throw err;
   }
 }
 

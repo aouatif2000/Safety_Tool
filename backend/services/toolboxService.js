@@ -212,11 +212,30 @@ function getDocumentStats() {
  */
 async function exportDocument(id, format = 'markdown') {
   const pdfService = require('./pdfService');
-  const document = getDocumentById(id);
+  const store = require('../models/store');
+
+  // Look in the documents store first; fall back to sessions store
+  let document = getDocumentById(id);
+
+  if (!document) {
+    const session = store.sessions.find(s => s.id === id);
+    if (session) {
+      // Normalise session shape to match what pdfService expects
+      document = {
+        id:          session.id,
+        title:       session.title,
+        rawMarkdown: session.rawMarkdown,
+        metadata:    { status: session.status, createdAt: session.createdAt }
+      };
+      console.log('[Export] Document resolved from sessions store');
+    }
+  }
 
   if (!document) {
     throw new Error('Document not found');
   }
+
+  console.log('[Export] Exporting id:', id, '| format:', format, '| rawMarkdown:', document.rawMarkdown ? `${document.rawMarkdown.length} chars` : 'MISSING');
 
   const safeName = document.title.replace(/[^a-zA-Z0-9_-]/g, '_');
 

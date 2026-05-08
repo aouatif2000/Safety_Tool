@@ -9,6 +9,8 @@ import CreateProject from "./pages/CreateProject";
 import ToolboxSessions from "./pages/ToolboxSessions";
 import LiveToolboxWizard from "./pages/LiveToolboxWizard";
 import SessionDetail from "./pages/SessionDetail";
+import DocumentReview from "./pages/DocumentReview";
+import MobileSignOff from "./pages/MobileSignOff";
 import Inspection from "./pages/Inspection";
 import PlaceholderPage from "./pages/PlaceholderPage";
 import KnowledgeBase from "./pages/KnowledgeBase";
@@ -31,6 +33,7 @@ function AppShell() {
           <Route path="/" element={<Dashboard />} />
           <Route path="/toolbox" element={<ToolboxProjects />} />
           <Route path="/toolbox/create" element={<CreateProject />} />
+          <Route path="/toolbox/review/:documentId" element={<DocumentReview />} />
           <Route path="/toolbox/:projectId/wizard" element={<LiveToolboxWizard />} />
           <Route path="/toolbox/:projectId" element={<ToolboxSessions />} />
           <Route path="/toolbox/:projectId/session/:sessionId" element={<SessionDetail />} />
@@ -53,7 +56,13 @@ function AppShell() {
 export default function App() {
   return (
     <BrowserRouter>
-      <AppShell />
+      <Routes>
+        {/* ── Public standalone route — no sidebar/header ── */}
+        <Route path="/sign/:token" element={<MobileSignOff />} />
+
+        {/* ── Main app shell ── */}
+        <Route path="/*" element={<AppShell />} />
+      </Routes>
     </BrowserRouter>
   );
 }

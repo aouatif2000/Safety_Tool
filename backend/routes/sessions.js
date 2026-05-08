@@ -2,7 +2,8 @@ const express = require("express");
 const router = express.Router();
 const { v4: uuidv4 } = require("uuid");
 const store = require("../models/store");
-const { generateToolboxTalk } = require("../services/aiService");
+const { generateDocument } = require("../services/llmService");
+const documentRules = require("../config/documentRules");
 
 // GET all sessions (optionally filtered by projectId)
 router.get("/", (req, res) => {
@@ -21,7 +22,7 @@ router.get("/:id", (req, res) => {
 });
 
 // POST create session with AI document generation
-router.post("/", (req, res) => {
+router.post("/", async (req, res) => {
   const { projectId, documentType, context } = req.body;
 
   if (!projectId || !documentType || !context) {
@@ -31,30 +32,48 @@ router.post("/", (req, res) => {
   const project = store.projects.find(p => p.id === projectId);
   if (!project) return res.status(404).json({ error: "Project not found" });
 
-  // Generate document using AI service
-  const document = generateToolboxTalk(documentType, project.name, context);
+  try {
+    const rules = documentRules.getRules(documentType);
+    const llmResult = await generateDocument(
+      documentType,
+      {
+        documentType,
+        title: context.tasks ? context.tasks.substring(0, 80) : documentType,
+        location: context.location || project.location,
+        company: project.company || '',
+        subcontractors: project.subcontractors || [],
+        customInstructions: context.additionalContext || ''
+      },
+      rules,
+      null
+    );
 
-  const session = {
-    id: uuidv4(),
-    projectId,
-    title: context.tasks ? context.tasks.substring(0, 50) : documentType,
-    status: "Open",
-    category: "safety",
-    documentType,
-    date: new Date().toISOString(),
-    location: context.location || project.location,
-    attendees: 0,
-    signatures: 0,
-    version: 1,
-    context,
-    document,
-    qrCode: uuidv4(), // QR code identifier
-    signatureList: [],
-    createdAt: new Date().toISOString()
-  };
+    const session = {
+      id: uuidv4(),
+      projectId,
+      title: llmResult.document.title,
+      status: "Open",
+      category: "safety",
+      documentType,
+      date: new Date().toISOString(),
+      location: context.location || project.location,
+      attendees: 0,
+      signatures: 0,
+      version: 1,
+      context,
+      document: llmResult.document,
+      rawMarkdown: llmResult.rawMarkdown,
+      qrCode: uuidv4(),
+      signatureList: [],
+      createdAt: new Date().toISOString()
+    };
 
-  store.sessions.push(session);
-  res.status(201).json(session);
+    store.sessions.push(session);
+    res.status(201).json(session);
+  } catch (error) {
+    console.error('[Sessions] Generation failed:', error.message);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // PATCH update session status

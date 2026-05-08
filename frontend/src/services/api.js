@@ -1,4 +1,4 @@
-const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:5000/api";
+export const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:5000/api";
 
 async function fetchJson(url, options = {}) {
   const res = await fetch(`${API_BASE}${url}`, {
@@ -108,6 +108,25 @@ export const updateDocument = (id, updates) =>
   fetchJson(`/toolbox/documents/${id}`, {
     method: "PUT",
     body: JSON.stringify(updates)
+  });
+
+// Approval workflow
+export const submitForReview = (id, actor) =>
+  fetchJson(`/toolbox/documents/${id}/submit-review`, {
+    method: 'POST',
+    body: JSON.stringify({ actor })
+  });
+
+export const approveDocument = (id, actor) =>
+  fetchJson(`/toolbox/documents/${id}/approve`, {
+    method: 'POST',
+    body: JSON.stringify({ actor })
+  });
+
+export const rejectDocument = (id, actor) =>
+  fetchJson(`/toolbox/documents/${id}/reject`, {
+    method: 'POST',
+    body: JSON.stringify({ actor })
   });
 
 export const deleteSession = (id) => {

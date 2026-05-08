@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Download, Share2, Users, XCircle, CheckSquare, Trash2, FileText, UserCheck, FileSignature, QrCode, MapPin } from "lucide-react";
+import { ArrowLeft, Download, Share2, Users, CheckSquare, Trash2, FileText, UserCheck, FileSignature, QrCode, MapPin, ClipboardList } from "lucide-react";
 import * as api from "../services/api";
+import { API_BASE } from "../services/api";
 
 export default function SessionDetail() {
   const { projectId, sessionId } = useParams();
@@ -9,6 +10,10 @@ export default function SessionDetail() {
   const [session, setSession] = useState(null);
   const [activeTab, setActiveTab] = useState("document");
   const [loading, setLoading] = useState(true);
+  const [qrData, setQrData] = useState(null);
+  const [qrLoading, setQrLoading] = useState(false);
+  const [auditData, setAuditData] = useState(null);
+  const [auditLoading, setAuditLoading] = useState(false);
 
   useEffect(() => {
     api.getSession(sessionId).then(s => { setSession(s); setLoading(false); }).catch(() => setLoading(false));
@@ -26,11 +31,38 @@ export default function SessionDetail() {
   };
 
   const tabs = [
-    { id: "document", label: "Document", icon: FileText },
-    { id: "attendance", label: "Attendance", icon: UserCheck },
-    { id: "signatures", label: "Signatures", icon: FileSignature },
-    { id: "qrcode", label: "QR Code", icon: QrCode }
+    { id: "document",   label: "Document",    icon: FileText },
+    { id: "attendance", label: "Attendance",   icon: UserCheck },
+    { id: "signatures", label: "Signatures",   icon: FileSignature },
+    { id: "qrcode",     label: "QR Code",      icon: QrCode },
+    { id: "audit",      label: "Audit Trail",  icon: ClipboardList },
   ];
+
+  const loadQr = () => {
+    if (qrData || qrLoading) return;
+    setQrLoading(true);
+    fetch(`${API_BASE}/toolbox/documents/${session.id}/qr`)
+      .then(r => r.json())
+      .then(d => { if (d.success) setQrData(d); })
+      .catch(() => {})
+      .finally(() => setQrLoading(false));
+  };
+
+  const loadAudit = () => {
+    if (auditData || auditLoading) return;
+    setAuditLoading(true);
+    fetch(`${API_BASE}/toolbox/documents/${session.id}/audit`)
+      .then(r => r.json())
+      .then(d => { if (d.success) setAuditData(d); })
+      .catch(() => {})
+      .finally(() => setAuditLoading(false));
+  };
+
+  const handleTabChange = (id) => {
+    setActiveTab(id);
+    if (id === "qrcode") loadQr();
+    if (id === "audit")  loadAudit();
+  };
 
   return (
     <div className="page">
@@ -48,7 +80,13 @@ export default function SessionDetail() {
           </div>
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <button className="btn btn-outline btn-sm"><Download size={14} /> Download</button>
+          <button
+            className="btn btn-outline btn-sm"
+            title="Download as PDF"
+            onClick={() => window.open(`${API_BASE}/toolbox/export/${session.id}?format=pdf`)}
+          >
+            <Download size={14} /> Download PDF
+          </button>
           <button className="btn btn-outline btn-sm"><Share2 size={14} /> Share</button>
           <button className="btn btn-outline btn-sm"><Users size={14} /> Delegate</button>
           <button className="btn btn-accent btn-sm" onClick={() => handleStatusChange("Closed")}><CheckSquare size={14} /> Close</button>
@@ -63,7 +101,7 @@ export default function SessionDetail() {
 
       <div className="tabs">
         {tabs.map(tab => (
-          <button key={tab.id} className={`tab ${activeTab === tab.id ? "active" : ""}`} onClick={() => setActiveTab(tab.id)}>
+          <button key={tab.id} className={`tab ${activeTab === tab.id ? "active" : ""}`} onClick={() => handleTabChange(tab.id)}>
             <tab.icon size={15} /> {tab.label}
           </button>
         ))}
@@ -116,18 +154,124 @@ export default function SessionDetail() {
       )}
 
       {activeTab === "qrcode" && (
-        <div className="card" style={{ textAlign: "center", padding: 56 }}>
-          <div style={{ width: 140, height: 140, borderRadius: 16, background: "var(--bg-subtle)", border: "2px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 24px" }}>
-            <QrCode size={80} color="var(--text)" />
-          </div>
-          <p style={{ fontWeight: 700, fontSize: 18, marginBottom: 8 }}>Scan to Sign</p>
-          <p style={{ color: "var(--text-secondary)", fontSize: 14, marginBottom: 20, maxWidth: 360, margin: "0 auto 20px" }}>
-            Workers can scan this QR code on their phone to sign the document digitally.
-          </p>
-          <p style={{ fontSize: 12, color: "var(--text-muted)", fontFamily: "var(--font-mono)", marginBottom: 20 }}>
-            {session.qrCode || "N/A"}
-          </p>
-          <button className="btn btn-outline">Regenerate QR Code</button>
+        <div className="card" style={{ textAlign: "center", padding: "40px 24px" }}>
+          {qrLoading && (
+            <div style={{ padding: 40 }}><div className="spinner" style={{ margin: "0 auto" }} /></div>
+          )}
+          {!qrLoading && qrData && (
+            <>
+              <img
+                src={qrData.qrDataUrl}
+                alt="QR Code for digital sign-off"
+                width={220}
+                height={220}
+                style={{ borderRadius: 12, border: "2px solid var(--border)", marginBottom: 20 }}
+              />
+              <p style={{ fontWeight: 700, fontSize: 18, marginBottom: 8 }}>Scan to Sign</p>
+              <p style={{ color: "var(--text-secondary)", fontSize: 14, marginBottom: 16, maxWidth: 360, margin: "0 auto 16px" }}>
+                Workers scan this QR code on their phone to sign off digitally. Link expires in 24 h.
+              </p>
+              <p style={{ fontSize: 11, color: "var(--text-muted)", fontFamily: "var(--font-mono)", wordBreak: "break-all", maxWidth: 400, margin: "0 auto 20px" }}>
+                {qrData.signUrl}
+              </p>
+              <button
+                className="btn btn-outline btn-sm"
+                onClick={() => { setQrData(null); loadQr(); }}
+              >
+                <QrCode size={14} /> Regenerate
+              </button>
+            </>
+          )}
+          {!qrLoading && !qrData && (
+            <>
+              <QrCode size={56} style={{ opacity: 0.2, marginBottom: 16 }} />
+              <p style={{ color: "var(--text-muted)" }}>Could not load QR code.</p>
+              <button className="btn btn-outline btn-sm" style={{ marginTop: 12 }} onClick={() => { setQrData(null); loadQr(); }}>Retry</button>
+            </>
+          )}
+        </div>
+      )}
+
+      {activeTab === "audit" && (
+        <div>
+          {auditLoading && (
+            <div style={{ padding: 40, textAlign: "center" }}><div className="spinner" style={{ margin: "0 auto" }} /></div>
+          )}
+          {!auditLoading && auditData && (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+              {/* Audit Log */}
+              <div className="card">
+                <h3 style={{ fontWeight: 700, marginBottom: 20, fontSize: 15 }}>Audit Log</h3>
+                <div style={{ position: "relative", paddingLeft: 24 }}>
+                  {[...auditData.auditLog].reverse().map((entry, i) => {
+                    const dotColor = {
+                      created:          "#6b7280",
+                      content_edited:   "#f97316",
+                      review:           "#3b82f6",
+                      rejected_to_draft:"#ef4444",
+                      approved:         "#16a34a",
+                      signed:           "#8b5cf6",
+                    }[entry.action] || "#9ca3af";
+                    return (
+                      <div key={i} style={{ position: "relative", paddingBottom: 20 }}>
+                        {/* vertical line */}
+                        {i < auditData.auditLog.length - 1 && (
+                          <span style={{ position: "absolute", left: -18, top: 20, bottom: 0, width: 2, background: "#e5e7eb" }} />
+                        )}
+                        {/* dot */}
+                        <span style={{ position: "absolute", left: -24, top: 4, width: 12, height: 12, borderRadius: "50%", background: dotColor, border: "2px solid #fff", boxShadow: "0 0 0 2px " + dotColor + "40" }} />
+                        <div style={{ fontSize: 13, fontWeight: 600, color: "#111827", textTransform: "capitalize" }}>
+                          {entry.action.replace(/_/g, " ")}
+                        </div>
+                        <div style={{ fontSize: 12, color: "#6b7280", marginTop: 1 }}>
+                          by <strong>{entry.actor}</strong>
+                          {entry.fromStatus && entry.fromStatus !== entry.toStatus && (
+                            <span> &nbsp;·&nbsp; {entry.fromStatus} → {entry.toStatus}</span>
+                          )}
+                        </div>
+                        {entry.note && (
+                          <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 2 }}>{entry.note}</div>
+                        )}
+                        <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 2 }}>
+                          {new Date(entry.timestamp).toLocaleString()}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Sign-Offs */}
+              <div className="card">
+                <h3 style={{ fontWeight: 700, marginBottom: 20, fontSize: 15 }}>
+                  Sign-Offs ({auditData.signoffs.length})
+                </h3>
+                {auditData.signoffs.length === 0 ? (
+                  <p style={{ color: "var(--text-muted)", textAlign: "center", padding: "32px 0" }}>No sign-offs yet. Share the QR code to collect signatures.</p>
+                ) : (
+                  auditData.signoffs.map((sig, i) => (
+                    <div key={sig.id || i} style={{ padding: "12px 0", borderBottom: "1px solid var(--border-light)" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                        <span style={{ fontWeight: 600, fontSize: 14 }}>{sig.name}</span>
+                        <span style={{ fontSize: 11, color: "var(--text-muted)" }}>{new Date(sig.signedAt).toLocaleString()}</span>
+                      </div>
+                      <div style={{ display: "flex", gap: 8, marginTop: 6, flexWrap: "wrap" }}>
+                        {sig.attended   && <span style={{ fontSize: 11, background: "#d1fae5", color: "#065f46", borderRadius: 4, padding: "2px 7px" }}>Attended</span>}
+                        {sig.understood && <span style={{ fontSize: 11, background: "#dbeafe", color: "#1e40af", borderRadius: 4, padding: "2px 7px" }}>Understood</span>}
+                        {sig.willApply  && <span style={{ fontSize: 11, background: "#ede9fe", color: "#5b21b6", borderRadius: 4, padding: "2px 7px" }}>Will Apply</span>}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+          {!auditLoading && !auditData && (
+            <div className="card" style={{ textAlign: "center", padding: 40 }}>
+              <p style={{ color: "var(--text-muted)" }}>Could not load audit data.</p>
+              <button className="btn btn-outline btn-sm" style={{ marginTop: 12 }} onClick={() => { setAuditData(null); loadAudit(); }}>Retry</button>
+            </div>
+          )}
         </div>
       )}
     </div>
