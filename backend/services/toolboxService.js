@@ -138,6 +138,11 @@ function updateDocument(id, updates) {
     document.content = updates.content;
     contentUpdated = true;
   }
+  // Attendees list saved by wizard
+  if (Array.isArray(updates.attendees)) {
+    document.attendees = updates.attendees;
+  }
+
   if (contentUpdated) {
     document.metadata.version++;
     const updatedAt = new Date().toISOString();

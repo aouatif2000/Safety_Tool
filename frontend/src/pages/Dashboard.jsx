@@ -95,7 +95,7 @@ export default function Dashboard() {
             <h3 style={{ fontSize: 15, fontWeight: 700, display: "flex", alignItems: "center", gap: 8 }}>
               <TrendingUp size={16} color="var(--primary)" /> Recent Activity
             </h3>
-            <button className="btn btn-ghost btn-sm" style={{ fontSize: 12 }}>View all →</button>
+            <button className="btn btn-ghost btn-sm" style={{ fontSize: 12 }} onClick={() => navigate("/toolbox")}>View all →</button>
           </div>
           {data?.recentActivity?.length > 0 ? (
             data.recentActivity.map(item => (
@@ -133,10 +133,10 @@ export default function Dashboard() {
           </div>
           <div style={{ borderTop: "1px solid var(--border-light)", paddingTop: 14 }}>
             {[
-              { label: "View Planning", icon: Calendar },
-              { label: "Compliance Center", icon: CheckCircle },
+              { label: "View Planning", icon: Calendar, path: "/permits" },
+              { label: "Compliance Center", icon: CheckCircle, path: "/risk-assessment" },
             ].map(link => (
-              <div key={link.label} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 0", cursor: "pointer" }}>
+              <div key={link.label} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 0", cursor: "pointer" }} onClick={() => navigate(link.path)}>
                 <span style={{ fontSize: 14, display: "flex", alignItems: "center", gap: 8, color: "var(--text-secondary)" }}>
                   <link.icon size={14} /> {link.label}
                 </span>

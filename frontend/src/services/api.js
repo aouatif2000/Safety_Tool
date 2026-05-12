@@ -129,6 +129,13 @@ export const rejectDocument = (id, actor) =>
     body: JSON.stringify({ actor })
   });
 
+// Save in-person sign-offs collected in the Live Toolbox Wizard
+export const saveWizardSignoffs = (id, signoffs) =>
+  fetchJson(`/toolbox/documents/${id}/signoffs`, {
+    method: 'POST',
+    body: JSON.stringify({ signoffs })
+  });
+
 export const deleteSession = (id) => {
   // No backend endpoint for this yet - mock implementation
   return Promise.resolve({ success: true });

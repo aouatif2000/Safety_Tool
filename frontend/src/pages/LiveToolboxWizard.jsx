@@ -9,14 +9,17 @@ export default function LiveToolboxWizard() {
   const [project, setProject] = useState(null);
   const [currentStep, setCurrentStep] = useState("topic");
   const [selectedTopic, setSelectedTopic] = useState("");
-  const [language, setLanguage] = useState("nl");
   const [customText, setCustomText] = useState("");
+  const [language, setLanguage] = useState("nl");
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedContent, setGeneratedContent] = useState(null);
   const [editedMarkdown, setEditedMarkdown] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState(null);
   const [submitted, setSubmitted] = useState(false);
+  const [attendees, setAttendees] = useState([]);
+  const [attendeeInput, setAttendeeInput] = useState("");
+  const [signedOff, setSignedOff] = useState({});
 
   useEffect(() => {
     api.getProject(projectId).then(setProject).catch(console.error);
@@ -46,7 +49,7 @@ export default function LiveToolboxWizard() {
       // Call the backend API to generate document with LLM
       const response = await api.generateDocument({
         documentType: 'toolbox',
-        topic: selectedTopic || customText,
+        topic: selectedTopic === "__custom__" ? customText : selectedTopic,
         typeOfWork: 'Toolbox Talk',
         location: project?.location || '',
         language: language,
@@ -56,7 +59,7 @@ export default function LiveToolboxWizard() {
         // Pass full project context so the LLM receives company identity
         context: {
           documentType: 'toolbox',
-          title: selectedTopic || customText,
+          title: selectedTopic === "__custom__" ? customText : selectedTopic,
           location: project?.location || '',
           language: language,
           company: project?.company || '',
@@ -86,7 +89,15 @@ export default function LiveToolboxWizard() {
     setGeneratedContent(null);
   };
 
-  const handleAcceptContent = () => {
+  const handleAcceptContent = async () => {
+    // Flush any in-editor markdown changes before leaving preview
+    if (generatedContent?.id) {
+      try {
+        await api.updateDocument(generatedContent.id, { rawMarkdown: editedMarkdown });
+      } catch (err) {
+        console.warn("[Wizard] Could not save markdown:", err);
+      }
+    }
     setCurrentStep("attendees");
   };
 
@@ -124,15 +135,48 @@ export default function LiveToolboxWizard() {
     }
   };
 
+  const addAttendee = () => {
+    const name = attendeeInput.trim();
+    if (!name || attendees.includes(name)) return;
+    setAttendees(prev => [...prev, name]);
+    setAttendeeInput("");
+  };
+
+  const removeAttendee = (name) => setAttendees(prev => prev.filter(a => a !== name));
+
+  const toggleSignOff = async (name) => {
+    const nowSigned = !signedOff[name];
+    setSignedOff(prev => ({ ...prev, [name]: nowSigned }));
+    // Immediately persist sign-on; ignore sign-off toggles (can't un-sign from backend easily)
+    if (nowSigned && generatedContent?.id) {
+      try {
+        await api.saveWizardSignoffs(generatedContent.id, [
+          { name, attended: true, understood: true, willApply: true }
+        ]);
+      } catch (err) {
+        console.warn("[Wizard] Could not persist signoff for", name, err);
+      }
+    }
+  };
+
   const handleClose = () => {
     navigate("/toolbox");
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (currentStep === "attendees") {
+      // Persist attendees list to backend
+      if (generatedContent?.id && attendees.length > 0) {
+        try {
+          await api.updateDocument(generatedContent.id, { attendees });
+        } catch (err) {
+          console.warn("[Wizard] Could not save attendees:", err);
+        }
+      }
       setCurrentStep("session");
     } else if (currentStep === "session") {
-      // Complete and navigate
+      // Sign-offs are already persisted individually on tap via toggleSignOff.
+      // Just navigate back to the project.
       navigate(`/toolbox/${projectId}`);
     }
   };
@@ -240,7 +284,7 @@ export default function LiveToolboxWizard() {
                 }}>
                   <select
                     value={selectedTopic}
-                    onChange={(e) => setSelectedTopic(e.target.value)}
+                    onChange={(e) => { setSelectedTopic(e.target.value); if (e.target.value !== "__custom__") setCustomText(""); }}
                     style={{
                       width: "100%",
                       padding: "12px 16px",
@@ -255,8 +299,49 @@ export default function LiveToolboxWizard() {
                     {toolboxTopics.map(topic => (
                       <option key={topic} value={topic}>{topic}</option>
                     ))}
+                    <option disabled style={{ color: "var(--border-light)" }}>──────────────</option>
+                    <option value="__custom__">+ Add custom topic...</option>
                   </select>
                 </div>
+                {selectedTopic === "__custom__" && (
+                  <input
+                    type="text"
+                    value={customText}
+                    onChange={(e) => setCustomText(e.target.value)}
+                    placeholder="Enter your custom topic..."
+                    autoFocus
+                    style={{
+                      width: "100%",
+                      marginTop: 8,
+                      padding: "12px 16px",
+                      background: "white",
+                      border: "1px solid var(--border-light)",
+                      borderRadius: "var(--radius-md)",
+                      fontSize: 14,
+                      boxSizing: "border-box"
+                    }}
+                  />
+                )}
+              </div>
+
+              <div style={{ marginBottom: 24 }}>
+                <label style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, display: "block" }}>Or type your own toolbox text</label>
+                <textarea
+                  value={customText}
+                  onChange={(e) => setCustomText(e.target.value)}
+                  placeholder="Enter your custom toolbox talk topic or description..."
+                  style={{
+                    width: "100%",
+                    padding: "12px 16px",
+                    background: "white",
+                    border: "1px solid var(--border-light)",
+                    borderRadius: "var(--radius-md)",
+                    minHeight: 100,
+                    fontSize: 14,
+                    fontFamily: "inherit",
+                    resize: "vertical"
+                  }}
+                />
               </div>
 
               <div style={{ marginBottom: 24 }}>
@@ -291,25 +376,7 @@ export default function LiveToolboxWizard() {
                 </p>
               </div>
 
-              <div style={{ marginBottom: 24 }}>
-                <label style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, display: "block" }}>Or type your own toolbox text</label>
-                <textarea
-                  value={customText}
-                  onChange={(e) => setCustomText(e.target.value)}
-                  placeholder="Enter your custom toolbox talk topic or description..."
-                  style={{
-                    width: "100%",
-                    padding: "12px 16px",
-                    background: "white",
-                    border: "1px solid var(--border-light)",
-                    borderRadius: "var(--radius-md)",
-                    minHeight: 100,
-                    fontSize: 14,
-                    fontFamily: "inherit",
-                    resize: "vertical"
-                  }}
-                />
-              </div>
+
             </div>
           )}
 
@@ -319,16 +386,45 @@ export default function LiveToolboxWizard() {
                 <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>Who is attending?</h2>
                 <p style={{ fontSize: 13, color: "var(--text-secondary)" }}>Add participants to the toolbox talk</p>
               </div>
-              <div style={{
-                padding: 24,
-                background: "var(--bg-subtle)",
-                borderRadius: "var(--radius-md)",
-                textAlign: "center",
-                fontWeight: 600,
-                color: "var(--text-muted)"
-              }}>
-                Coming soon - Add attendees in the next update
+
+              {/* Add attendee */}
+              <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
+                <input
+                  type="text"
+                  value={attendeeInput}
+                  onChange={e => setAttendeeInput(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && addAttendee()}
+                  placeholder="Full name..."
+                  style={{ flex: 1, padding: "10px 14px", border: "1px solid var(--border-light)", borderRadius: "var(--radius-md)", fontSize: 14 }}
+                />
+                <button className="btn btn-primary" onClick={addAttendee} disabled={!attendeeInput.trim()}>Add</button>
               </div>
+
+              {/* Attendee list */}
+              {attendees.length === 0 ? (
+                <div style={{ padding: 32, textAlign: "center", background: "var(--bg-subtle)", borderRadius: "var(--radius-md)", color: "var(--text-muted)", fontSize: 14 }}>
+                  No attendees added yet. Type a name above and press Add or Enter.
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {attendees.map(name => (
+                    <div key={name} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", background: "var(--bg-subtle)", borderRadius: "var(--radius-md)", border: "1px solid var(--border-light)" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <div style={{ width: 32, height: 32, borderRadius: "50%", background: "var(--primary-light)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: "var(--primary)" }}>
+                          {name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
+                        </div>
+                        <span style={{ fontWeight: 600, fontSize: 14 }}>{name}</span>
+                      </div>
+                      <button onClick={() => removeAttendee(name)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", display: "flex", alignItems: "center" }}>
+                        <X size={16} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {attendees.length > 0 && (
+                <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 12 }}>{attendees.length} attendee{attendees.length !== 1 ? "s" : ""} added</p>
+              )}
             </div>
           )}
 
@@ -336,18 +432,46 @@ export default function LiveToolboxWizard() {
             <div>
               <div style={{ marginBottom: 24 }}>
                 <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>Live & Signatures</h2>
-                <p style={{ fontSize: 13, color: "var(--text-secondary)" }}>Configure session settings and signature collection</p>
+                <p style={{ fontSize: 13, color: "var(--text-secondary)" }}>Mark off attendees who have acknowledged the toolbox talk</p>
               </div>
-              <div style={{
-                padding: 24,
-                background: "var(--bg-subtle)",
-                borderRadius: "var(--radius-md)",
-                textAlign: "center",
-                fontWeight: 600,
-                color: "var(--text-muted)"
-              }}>
-                Coming soon - Configure signatures in the next update
-              </div>
+
+              {attendees.length === 0 ? (
+                <div style={{ padding: 28, background: "var(--bg-subtle)", borderRadius: "var(--radius-md)", textAlign: "center", color: "var(--text-muted)", fontSize: 14 }}>
+                  No attendees to sign off. Go back to add participants.
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {attendees.map(name => (
+                    <div
+                      key={name}
+                      onClick={() => toggleSignOff(name)}
+                      style={{
+                        display: "flex", alignItems: "center", justifyContent: "space-between",
+                        padding: "14px 18px", borderRadius: "var(--radius-md)",
+                        border: `2px solid ${signedOff[name] ? "var(--primary)" : "var(--border-light)"}`,
+                        background: signedOff[name] ? "var(--primary-light)" : "white",
+                        cursor: "pointer", transition: "all 0.15s"
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                        <div style={{ width: 36, height: 36, borderRadius: "50%", background: signedOff[name] ? "var(--primary)" : "var(--bg-subtle)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: signedOff[name] ? "white" : "var(--text-secondary)", transition: "all 0.15s" }}>
+                          {name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
+                        </div>
+                        <span style={{ fontWeight: 600, fontSize: 14 }}>{name}</span>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600, color: signedOff[name] ? "var(--primary)" : "var(--text-muted)" }}>
+                        {signedOff[name] ? <><CheckCircle size={18} /> Signed off</> : <span>Tap to sign off</span>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {attendees.length > 0 && (
+                <div style={{ marginTop: 20, padding: "12px 16px", background: "var(--bg-subtle)", borderRadius: "var(--radius-md)", fontSize: 13, color: "var(--text-secondary)" }}>
+                  {Object.values(signedOff).filter(Boolean).length} / {attendees.length} signed off
+                </div>
+              )}
             </div>
           )}
 
@@ -512,29 +636,35 @@ export default function LiveToolboxWizard() {
           >
             Cancel
           </button>
-          {currentStep !== "preview" && (
-            <button
-              onClick={currentStep === "topic" ? handleGenerateContent : handleNext}
-              disabled={isGenerating || (currentStep === "topic" && !selectedTopic && !customText)}
-              style={{
-                padding: "10px 20px",
-                background: "var(--primary)",
-                color: "white",
-                border: "none",
-                borderRadius: "var(--radius-md)",
-                cursor: isGenerating || (currentStep === "topic" && !selectedTopic && !customText) ? "not-allowed" : "pointer",
-                fontWeight: 600,
-                fontSize: 14,
-                opacity: isGenerating || (currentStep === "topic" && !selectedTopic && !customText) ? 0.6 : 1,
-                display: "flex",
-                alignItems: "center",
-                gap: 8
-              }}
-            >
-              {isGenerating ? "Generating..." : currentStep === "topic" ? "Generate Toolbox Content" : "Next"}
-              {!isGenerating && <ChevronRight size={16} />}
-            </button>
-          )}
+          <button
+            onClick={
+              currentStep === "topic"    ? handleGenerateContent :
+              currentStep === "preview"  ? handleAcceptContent   :
+              handleNext
+            }
+            disabled={isGenerating || (currentStep === "topic" && !selectedTopic && !customText)}
+            style={{
+              padding: "10px 20px",
+              background: "var(--primary)",
+              color: "white",
+              border: "none",
+              borderRadius: "var(--radius-md)",
+              cursor: isGenerating || (currentStep === "topic" && !selectedTopic && !customText) ? "not-allowed" : "pointer",
+              fontWeight: 600,
+              fontSize: 14,
+              opacity: isGenerating || (currentStep === "topic" && !selectedTopic && !customText) ? 0.6 : 1,
+              display: "flex",
+              alignItems: "center",
+              gap: 8
+            }}
+          >
+            {isGenerating ? "Generating..." :
+             currentStep === "topic"   ? "Generate Toolbox Content" :
+             currentStep === "preview" ? "Continue to Attendees" :
+             currentStep === "session" ? "Complete Session" :
+             "Next"}
+            {!isGenerating && <ChevronRight size={16} />}
+          </button>
         </div>
       </div>
     </div>

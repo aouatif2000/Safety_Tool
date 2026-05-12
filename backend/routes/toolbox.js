@@ -393,6 +393,46 @@ router.post('/sign/:token', async (req, res) => {
 });
 
 /**
+ * POST /api/toolbox/documents/:id/signoffs
+ * Bulk-save in-person sign-offs collected during the Live Toolbox Wizard.
+ * Does NOT require a QR token or approved status — attendees sign off in person.
+ * Body: { signoffs: [{ name, attended?, understood?, willApply? }] }
+ */
+router.post('/documents/:id/signoffs', (req, res) => {
+  try {
+    const doc = toolboxService.getDocumentById(req.params.id);
+    if (!doc) return res.status(404).json({ success: false, error: 'Document not found' });
+
+    const { signoffs } = req.body;
+    if (!Array.isArray(signoffs) || signoffs.length === 0) {
+      return res.status(400).json({ success: false, error: 'signoffs must be a non-empty array' });
+    }
+
+    const now = new Date().toISOString();
+    const saved = [];
+    for (const entry of signoffs) {
+      if (!entry.name || !entry.name.trim()) continue;
+      const signoff = {
+        id: `SIG-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        name: entry.name.trim(),
+        attended:   entry.attended   !== false,
+        understood: entry.understood !== false,
+        willApply:  entry.willApply  !== false,
+        signedAt: now,
+        source: 'wizard'
+      };
+      toolboxService.appendSignoff(req.params.id, signoff);
+      saved.push(signoff);
+    }
+
+    res.json({ success: true, saved: saved.length, signoffs: saved });
+  } catch (error) {
+    console.error('[API] Wizard signoff error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
  * GET /api/toolbox/documents/:id/audit
  * Returns the immutable audit log and signoffs list for a document.
  */

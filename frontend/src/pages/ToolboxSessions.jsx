@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Settings, Edit, Trash2, Zap, AlertCircle, FileText, Clock, MessageSquare, Upload, FolderOpen, Sparkles, Megaphone, ChevronDown, X, ArrowRight, Shield, FileStack, Users, HardHat } from "lucide-react";
 import * as api from "../services/api";
@@ -10,18 +10,11 @@ export default function ToolboxSessions() {
   const [project, setProject] = useState(null);
   const [showAddMenu, setShowAddMenu] = useState(false);
   const [showGeneratePanel, setShowGeneratePanel] = useState(false);
+  const [showEditProject, setShowEditProject] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editLocation, setEditLocation] = useState("");
   const [selectedDocType, setSelectedDocType] = useState(null);
-  const [formData, setFormData] = useState({
-    companyLogo: null,
-    typeOfWork: "",
-    location: "",
-    mainHazards: "",
-    additionalNotes: "",
-    date: new Date().toISOString().split("T")[0],
-    revision: "",
-    version: "1.0",
-    photos: []
-  });
+  const uploadRef = useRef(null);
 
   useEffect(() => {
     api.getSessions(projectId).then(setDocuments).catch(console.error);
@@ -38,8 +31,15 @@ export default function ToolboxSessions() {
 
   const handleGenerateClick = () => {
     setShowAddMenu(false);
-    setShowGeneratePanel(true);
-    setSelectedDocType(null);
+    navigate(`/toolbox/${projectId}/wizard`);
+  };
+
+  const handleUploadFile = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    alert(`"${file.name}" selected. Upload functionality coming soon.`);
+    setShowAddMenu(false);
+    e.target.value = "";
   };
 
   const handleSelectDocType = (docType) => {
@@ -81,9 +81,9 @@ export default function ToolboxSessions() {
           </div>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
-          <button className="btn btn-ghost btn-sm"><Settings size={18} /></button>
-          <button className="btn btn-ghost btn-sm"><Edit size={18} /></button>
-          <button className="btn btn-ghost btn-sm" style={{ color: "var(--accent)" }}><Trash2 size={18} /></button>
+          <button className="btn btn-ghost btn-sm" title="Project settings" onClick={() => { setEditName(project?.name || ""); setEditLocation(project?.location || ""); setShowEditProject(true); }}><Settings size={18} /></button>
+          <button className="btn btn-ghost btn-sm" title="Edit project" onClick={() => { setEditName(project?.name || ""); setEditLocation(project?.location || ""); setShowEditProject(true); }}><Edit size={18} /></button>
+          <button className="btn btn-ghost btn-sm" style={{ color: "var(--accent)" }} onClick={() => { if (window.confirm("Delete this project?")) navigate("/toolbox"); }}><Trash2 size={18} /></button>
         </div>
       </div>
 
@@ -196,7 +196,7 @@ export default function ToolboxSessions() {
 
               {/* Hold Toolbox */}
               <button
-                onClick={() => setShowAddMenu(false)}
+                onClick={() => { setShowAddMenu(false); navigate(`/toolbox/${projectId}/wizard`); }}
                 style={{
                   width: "100%",
                   padding: "14px 16px",
@@ -222,7 +222,7 @@ export default function ToolboxSessions() {
 
               {/* Upload own file */}
               <button
-                onClick={() => setShowAddMenu(false)}
+                onClick={() => { setShowAddMenu(false); uploadRef.current?.click(); }}
                 style={{
                   width: "100%",
                   padding: "14px 16px",
@@ -288,8 +288,8 @@ export default function ToolboxSessions() {
               <span style={{ fontWeight: 600 }}>Documents</span>
             </div>
             <div style={{ display: "flex", gap: 8 }}>
-              <button className="btn btn-ghost btn-sm"><Upload size={16} /></button>
-              <button className="btn btn-primary btn-sm">New Builder</button>
+              <button className="btn btn-ghost btn-sm" onClick={() => uploadRef.current?.click()}><Upload size={16} /></button>
+              <button className="btn btn-primary btn-sm" onClick={() => navigate(`/toolbox/${projectId}/wizard`)}>New Builder</button>
             </div>
           </div>
 
@@ -298,12 +298,44 @@ export default function ToolboxSessions() {
             <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 4 }}>This folder is empty</div>
             <div style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 20 }}>Create subfolders or upload documents to get started.</div>
             <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-              <button className="btn btn-outline btn-sm"><Upload size={16} /> Upload Files</button>
-              <button className="btn btn-primary btn-sm">New Builder</button>
+              <button className="btn btn-outline btn-sm" onClick={() => uploadRef.current?.click()}><Upload size={16} /> Upload Files</button>
+              <button className="btn btn-primary btn-sm" onClick={() => navigate(`/toolbox/${projectId}/wizard`)}>New Builder</button>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Hidden file input for uploads */}
+      <input ref={uploadRef} type="file" style={{ display: "none" }} onChange={handleUploadFile} />
+
+      {/* Edit Project Modal */}
+      {showEditProject && (
+        <div className="modal-overlay" onClick={() => setShowEditProject(false)}>
+          <div className="modal" style={{ maxWidth: 420 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <div className="modal-title">Edit Project</div>
+              <button className="modal-close" onClick={() => setShowEditProject(false)}><X size={18} /></button>
+            </div>
+            <div style={{ padding: "0 24px 24px" }}>
+              <div className="form-group" style={{ marginBottom: 16 }}>
+                <label className="form-label">Project Name</label>
+                <input className="form-input" value={editName} onChange={e => setEditName(e.target.value)} />
+              </div>
+              <div className="form-group" style={{ marginBottom: 24 }}>
+                <label className="form-label">Location</label>
+                <input className="form-input" value={editLocation} onChange={e => setEditLocation(e.target.value)} />
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button className="btn btn-outline" style={{ flex: 1 }} onClick={() => setShowEditProject(false)}>Cancel</button>
+                <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => {
+                  setProject(p => ({ ...p, name: editName, location: editLocation }));
+                  setShowEditProject(false);
+                }}>Save</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Generate Document Sidebar */}
       {showGeneratePanel && (

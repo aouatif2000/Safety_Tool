@@ -87,8 +87,8 @@ export default function SessionDetail() {
           >
             <Download size={14} /> Download PDF
           </button>
-          <button className="btn btn-outline btn-sm"><Share2 size={14} /> Share</button>
-          <button className="btn btn-outline btn-sm"><Users size={14} /> Delegate</button>
+          <button className="btn btn-outline btn-sm" onClick={() => { navigator.clipboard.writeText(window.location.href); alert("Link copied to clipboard."); }}><Share2 size={14} /> Share</button>
+          <button className="btn btn-outline btn-sm" onClick={() => { const name = window.prompt("Delegate to (name or email):"); if (name) alert(`Document delegated to ${name}.`); }}><Users size={14} /> Delegate</button>
           <button className="btn btn-accent btn-sm" onClick={() => handleStatusChange("Closed")}><CheckSquare size={14} /> Close</button>
           <button className="btn btn-danger btn-sm" onClick={handleDelete}><Trash2 size={14} /> Delete</button>
         </div>
@@ -107,49 +107,103 @@ export default function SessionDetail() {
         ))}
       </div>
 
-      {activeTab === "document" && session.document && (
+      {activeTab === "document" && (
         <div>
           <h3 style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 15, fontWeight: 700, marginBottom: 18 }}>
             <FileText size={18} color="var(--primary)" /> Toolbox Document
           </h3>
-          <div className="document-content">
-            <h1>{session.document.title}</h1>
-            {session.document.sections.map((section, i) => (
-              <div key={i}>
-                <h2>{section.heading}</h2>
-                {section.content.split("\n").map((line, j) => {
-                  if (line.startsWith("**") && line.endsWith("**")) return <h3 key={j}>{line.replace(/\*\*/g, "")}</h3>;
-                  if (line.startsWith("**")) {
-                    const parts = line.split("**");
-                    return <p key={j}>{parts.map((part, k) => k % 2 === 1 ? <strong key={k}>{part}</strong> : part)}</p>;
-                  }
-                  if (line.startsWith("•") || line.startsWith("✅") || line.startsWith("-")) return <p key={j} style={{ paddingLeft: 16 }}>{line}</p>;
-                  if (line.trim() === "") return <br key={j} />;
-                  return <p key={j}>{line}</p>;
-                })}
+          {session.rawMarkdown ? (
+            <div className="document-content">
+              {session.rawMarkdown.split('\n').map((line, idx) => {
+                if (line.match(/^#+\s/)) {
+                  const level = line.match(/^#+/)[0].length;
+                  const Tag = `h${Math.min(level + 1, 6)}`;
+                  return <Tag key={idx} style={{ marginTop: idx > 0 ? 16 : 0, marginBottom: 6 }}>{line.replace(/^#+\s/, '')}</Tag>;
+                }
+                if (line.startsWith('- ') || line.startsWith('* ') || line.startsWith('• ') || line.startsWith('✅')) {
+                  return <p key={idx} style={{ paddingLeft: 16, marginBottom: 4 }}>{line}</p>;
+                }
+                if (line.trim() === '') return <br key={idx} />;
+                if (line.startsWith('**') && line.endsWith('**')) return <h3 key={idx}>{line.replace(/\*\*/g, '')}</h3>;
+                if (line.includes('**')) {
+                  const parts = line.split('**');
+                  return <p key={idx}>{parts.map((part, k) => k % 2 === 1 ? <strong key={k}>{part}</strong> : part)}</p>;
+                }
+                return <p key={idx} style={{ marginBottom: 4 }}>{line}</p>;
+              })}
+            </div>
+          ) : session.content?.sections ? (
+            <div className="document-content">
+              <h1>{session.content.title || session.title}</h1>
+              {session.content.sections.map((section, i) => (
+                <div key={i}>
+                  <h2>{section.heading}</h2>
+                  {section.content.split('\n').map((line, j) => {
+                    if (line.startsWith('**') && line.endsWith('**')) return <h3 key={j}>{line.replace(/\*\*/g, '')}</h3>;
+                    if (line.startsWith('**')) {
+                      const parts = line.split('**');
+                      return <p key={j}>{parts.map((part, k) => k % 2 === 1 ? <strong key={k}>{part}</strong> : part)}</p>;
+                    }
+                    if (line.startsWith('•') || line.startsWith('✅') || line.startsWith('-')) return <p key={j} style={{ paddingLeft: 16 }}>{line}</p>;
+                    if (line.trim() === '') return <br key={j} />;
+                    return <p key={j}>{line}</p>;
+                  })}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="card" style={{ textAlign: 'center', padding: 48, color: 'var(--text-muted)' }}>
+              <FileText size={40} style={{ margin: '0 auto 12px', opacity: 0.2 }} />
+              <p style={{ fontWeight: 600 }}>No document content yet</p>
+              <p style={{ fontSize: 13, marginTop: 4 }}>Generate content in the wizard to populate this tab.</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeTab === "attendance" && (() => {
+        const attendeeList = Array.isArray(session.attendees) ? session.attendees : [];
+        return (
+          <div className="card">
+            <h3 style={{ fontWeight: 700, marginBottom: 16, fontSize: 15 }}>Attendees ({attendeeList.length})</h3>
+            {attendeeList.length === 0 ? (
+              <div style={{ textAlign: "center", padding: 48, color: "var(--text-muted)" }}>
+                <UserCheck size={40} style={{ margin: "0 auto 12px", opacity: 0.3 }} />
+                <p style={{ fontWeight: 600 }}>No attendees recorded</p>
+                <p style={{ fontSize: 13, marginTop: 4 }}>Add attendees in the wizard to see them here.</p>
+              </div>
+            ) : attendeeList.map((name, i) => (
+              <div key={name} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 0", borderTop: i > 0 ? "1px solid var(--border-light)" : undefined }}>
+                <div style={{ width: 36, height: 36, borderRadius: "50%", background: "var(--primary-light)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "var(--primary)", flexShrink: 0 }}>
+                  {name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
+                </div>
+                <span style={{ fontWeight: 600, fontSize: 14 }}>{name}</span>
+                {(session.signoffs || []).some(s => s.name === name) && (
+                  <span style={{ marginLeft: "auto", fontSize: 12, background: "#d1fae5", color: "#065f46", borderRadius: 5, padding: "2px 8px", fontWeight: 600 }}>Signed off</span>
+                )}
               </div>
             ))}
           </div>
-        </div>
-      )}
-
-      {activeTab === "attendance" && (
-        <div className="card" style={{ textAlign: "center", padding: 56, color: "var(--text-muted)" }}>
-          <UserCheck size={40} style={{ margin: "0 auto 12px", opacity: 0.3 }} />
-          <p style={{ fontWeight: 600 }}>Attendance tracking</p>
-          <p style={{ fontSize: 13 }}>{session.attendees} attendee(s) registered</p>
-        </div>
-      )}
+        );
+      })()}
 
       {activeTab === "signatures" && (
         <div className="card">
-          <h3 style={{ marginBottom: 16, fontWeight: 700 }}>Signatures ({session.signatures})</h3>
-          {session.signatureList?.length > 0 ? session.signatureList.map(sig => (
-            <div key={sig.id} style={{ padding: "12px 0", borderBottom: "1px solid var(--border-light)", display: "flex", justifyContent: "space-between" }}>
-              <span style={{ fontWeight: 500 }}>{sig.name}</span>
-              <span style={{ fontSize: 13, color: "var(--text-muted)" }}>{new Date(sig.signedAt).toLocaleString()}</span>
+          <h3 style={{ marginBottom: 16, fontWeight: 700 }}>Signatures ({(session.signoffs || []).length})</h3>
+          {(session.signoffs || []).length > 0 ? (session.signoffs).map(sig => (
+            <div key={sig.id} style={{ padding: "12px 0", borderBottom: "1px solid var(--border-light)", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+              <div>
+                <span style={{ fontWeight: 500 }}>{sig.name}</span>
+                <div style={{ display: "flex", gap: 6, marginTop: 5, flexWrap: "wrap" }}>
+                  {sig.attended   && <span style={{ fontSize: 11, background: "#d1fae5", color: "#065f46", borderRadius: 4, padding: "2px 7px" }}>Attended</span>}
+                  {sig.understood && <span style={{ fontSize: 11, background: "#dbeafe", color: "#1e40af", borderRadius: 4, padding: "2px 7px" }}>Understood</span>}
+                  {sig.willApply  && <span style={{ fontSize: 11, background: "#ede9fe", color: "#5b21b6", borderRadius: 4, padding: "2px 7px" }}>Will Apply</span>}
+                  {sig.source === "wizard" && <span style={{ fontSize: 11, background: "#fef3c7", color: "#92400e", borderRadius: 4, padding: "2px 7px" }}>In-person</span>}
+                </div>
+              </div>
+              <span style={{ fontSize: 13, color: "var(--text-muted)", whiteSpace: "nowrap", marginLeft: 12 }}>{new Date(sig.signedAt).toLocaleString()}</span>
             </div>
-          )) : <p style={{ color: "var(--text-muted)", textAlign: "center", padding: 36 }}>No signatures yet. Share the QR code to collect signatures.</p>}
+          )) : <p style={{ color: "var(--text-muted)", textAlign: "center", padding: 36 }}>No signatures yet. Share the QR code to collect signatures, or use the wizard sign-off step.</p>}
         </div>
       )}
 

@@ -12,8 +12,11 @@ import SessionDetail from "./pages/SessionDetail";
 import DocumentReview from "./pages/DocumentReview";
 import MobileSignOff from "./pages/MobileSignOff";
 import Inspection from "./pages/Inspection";
-import PlaceholderPage from "./pages/PlaceholderPage";
+import RiskAssessment from "./pages/RiskAssessment";
+import Permits from "./pages/Permits";
+import AccessControl from "./pages/AccessControl";
 import KnowledgeBase from "./pages/KnowledgeBase";
+import PlaceholderPage from "./pages/PlaceholderPage";
 import "./styles/globals.css";
 
 function AppShell() {
@@ -38,9 +41,10 @@ function AppShell() {
           <Route path="/toolbox/:projectId" element={<ToolboxSessions />} />
           <Route path="/toolbox/:projectId/session/:sessionId" element={<SessionDetail />} />
           <Route path="/incidents" element={<Inspection />} />
-          <Route path="/risk-assessment" element={<PlaceholderPage />} />
-          <Route path="/permits" element={<PlaceholderPage />} />
-          <Route path="/access-control" element={<PlaceholderPage />} />
+          <Route path="/risk-assessment" element={<RiskAssessment />} />
+          <Route path="/permits" element={<Permits />} />
+          <Route path="/access-control" element={<AccessControl />} />
+          <Route path="/settings" element={<PlaceholderPage />} />
           <Route path="/knowledge-base" element={<KnowledgeBase />} />
         </Routes>
       </div>
